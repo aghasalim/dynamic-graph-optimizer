@@ -105,6 +105,11 @@ to ignore a neighbour whose link just failed. GATv2 rather than GAT because GAT'
 attention is static in the query, so its ranking of neighbours can't depend on
 which node is asking.
 
+The payoff is measurable. A policy trained on 4x5 beats backpressure on grids
+from 3x4 up to 8x10 with no retraining, and the margin holds as the network grows
+(see the transfer table in the README). 113 of 117 tensors copy across; the four
+that don't are the `edge_index` buffers and `log_std`.
+
 Readouts: actions are per-edge so the decoder is `MLP([h_i || h_j || e_ij])`,
 which is equivariant. Value is a graph-level scalar so it pools `[mean || max]`,
 which is invariant. Mean carries average load and max carries the bottleneck, and

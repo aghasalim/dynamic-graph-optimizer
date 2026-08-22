@@ -66,7 +66,33 @@ The difference shows up directly in the actions. The 400k policy only spans
 [-0.278, 0.122] of its available [-1, 1] and moves 0.057 when I slam every queue
 to 95% full. The 4M policy uses the full range and moves 0.142.
 
-Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`.
+### Transfer to other grid sizes
+
+Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is
+backpressure.
+
+| grid | nodes | edges | served sp / bp / ppo | peak_q sp / bp / ppo |
+|---|---|---|---|---|
+| 3x4 | 12 | 34 | 0.827 / 0.864 / **0.872** | 0.727 / 0.633 / **0.583** |
+| 4x5 | 20 | 62 | 0.869 / 0.901 / **0.929** | 0.766 / 0.672 / **0.602** |
+| 5x6 | 30 | 98 | 0.858 / 0.882 / **0.891** | 0.756 / 0.659 / **0.642** |
+| 6x8 | 48 | 164 | 0.843 / 0.872 / **0.897** | 0.808 / 0.722 / **0.667** |
+| 8x10 | 80 | 284 | 0.842 / 0.871 / **0.898** | 0.806 / 0.751 / **0.706** |
+
+It still beats backpressure on a grid with four times the nodes and 4.6 times the
+edges, and the margin doesn't shrink as the network grows. This is the thing the
+equivariant action head was for — nothing in the policy is tied to graph size
+except the `edge_index` buffer and `log_std`, so rebuilding the policy for a new
+topology and copying the weights transfers the control rule intact. 113 of 117
+tensors copy; the four that don't are the three `edge_index` buffers and
+`log_std`, which is unused in deterministic evaluation.
+
+```bash
+python -m dgno.transfer --model runs/long4M/agent --grids 3x4,4x5,5x6,6x8,8x10
+```
+
+Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`, transfer
+table in `docs/transfer.txt`.
 
 ## How it works
 
@@ -116,6 +142,7 @@ dgno/env.py         Gymnasium wrapper, observations, reward
 dgno/models.py      GATv2 encoder, SB3 extractor, policy
 dgno/baselines.py   shortest-path, backpressure, evaluation
 dgno/train.py       PPO config and entry point
+dgno/transfer.py    re-host a trained policy on a different grid
 dgno/visualize.py   episode animation
 tests/test_dgno.py  invariants, batching, shaping telescoping
 ```
@@ -124,11 +151,6 @@ tests/test_dgno.py  invariants, batching, shaping telescoping
 
 Spillback rationing is single-pass, so a throttled node can leave its upstream
 slightly over-served within the same tick. It corrects on the next one.
-
-`edge_index` is a buffer on the extractor, so transferring a trained agent to a
-different grid size means re-instantiating it. The GNN weights are size-agnostic
-and that transfer test is the best evidence for the equivariance argument, but I
-haven't run it.
 
 Flow is fluid rather than discrete vehicles, and the agent sees state with no
 delay, which is where most of the real difficulty would be.

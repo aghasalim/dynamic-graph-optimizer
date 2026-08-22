@@ -18,6 +18,7 @@ from dgno.env import DynamicRoutingEnv, RewardConfig, smooth_max
 from dgno.models import GraphFeaturesExtractor
 from dgno.simulator import NetworkConfig, NetworkSimulator
 from dgno.train import TrainConfig, build_agent, build_vec_env
+from dgno.transfer import rehost_policy
 
 
 def test_routing_split_is_a_distribution_per_node() -> None:
@@ -146,6 +147,38 @@ def test_policy_action_head_is_permutation_equivariant() -> None:
         agent.learn(total_timesteps=64)
     finally:
         venv.close()
+
+
+def test_policy_transfers_to_a_different_grid() -> None:
+    """Every learned tensor must survive a change of topology.
+
+    This is the concrete claim the equivariance work is for: only ``edge_index``
+    (topology, not weights) and ``log_std`` (one entry per action, unused when
+    evaluating deterministically) may fail to copy.  If anything else shows up in
+    the skipped list, some layer has picked up a dependence on the graph size.
+    """
+    source_env = DynamicRoutingEnv(config=NetworkConfig(rows=3, cols=4), seed=0)
+    config = TrainConfig(num_envs=2, n_steps=32, batch_size=64, total_timesteps=64)
+    venv = build_vec_env(config, source_env.config, source_env.reward_config)
+    try:
+        agent = build_agent(venv, config, source_env)
+    finally:
+        venv.close()
+
+    target_env = DynamicRoutingEnv(config=NetworkConfig(rows=5, cols=7), seed=0)
+    policy = rehost_policy(agent, target_env, config)
+    copied, skipped = policy._transfer_report
+
+    allowed = {"log_std"}
+    unexpected = [n for n in skipped if n != "log_std" and not n.endswith("edge_index")]
+    assert not unexpected, f"size-dependent tensors leaked into the model: {unexpected}"
+    assert allowed.issubset(set(skipped))
+    assert len(copied) > 100, "suspiciously few tensors transferred"
+
+    observation, _ = target_env.reset(seed=0)
+    action, _ = policy.predict(observation, deterministic=True)
+    assert action.shape == target_env.action_space.shape
+    assert np.all(np.isfinite(action))
 
 
 def test_backpressure_beats_shortest_path_under_load() -> None:
