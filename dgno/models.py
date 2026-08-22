@@ -190,8 +190,11 @@ class GraphMlpExtractor(nn.Module):
 class GraphActorCriticPolicy(ActorCriticPolicy):
     """PPO policy whose actor is a shared per-edge decoder rather than a dense head."""
 
-    def __init__(self, *args, vf_hidden: int = 128, **kwargs) -> None:
+    def __init__(
+        self, *args, vf_hidden: int = 128, action_head_gain: float = 0.01, **kwargs
+    ) -> None:
         self.vf_hidden = vf_hidden
+        self.action_head_gain = action_head_gain
         super().__init__(*args, **kwargs)
 
     def _build_mlp_extractor(self) -> None:
@@ -208,8 +211,12 @@ class GraphActorCriticPolicy(ActorCriticPolicy):
         # ``actor_head`` already produced one logit per edge, so SB3's default
         # Linear(latent_pi, action_dim) would be a dense mixing layer that breaks
         # equivariance.  Drop it and rebuild the optimizer over the new parameters.
+        # ``action_head_gain`` inherits SB3's 0.01 default, which keeps the initial
+        # policy near zero; raise it when the agent is failing to leave that basin.
         if self.mlp_extractor.latent_dim_pi == int(np.prod(self.action_space.shape)):
-            nn.init.orthogonal_(self.mlp_extractor.actor_head.weight, gain=0.01)
+            nn.init.orthogonal_(
+                self.mlp_extractor.actor_head.weight, gain=self.action_head_gain
+            )
             nn.init.zeros_(self.mlp_extractor.actor_head.bias)
             self.action_net = nn.Identity()
             self.optimizer = self.optimizer_class(

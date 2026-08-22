@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from stable_baselines3 import PPO
+from stable_baselines3.common.logger import configure
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 
@@ -48,6 +49,7 @@ class TrainConfig:
     learning_rate: float = 2e-4
     target_kl: float | None = 0.02
     log_std_init: float = -1.0
+    action_head_gain: float = 0.01
     gamma: float = 0.99
     gae_lambda: float = 0.95
     clip_range: float = 0.2
@@ -113,6 +115,7 @@ def build_agent(venv: VecNormalize, config: TrainConfig, probe: DynamicRoutingEn
         },
         "vf_hidden": config.vf_hidden,
         "log_std_init": config.log_std_init,
+        "action_head_gain": config.action_head_gain,
     }
     return PPO(
         GraphActorCriticPolicy,
@@ -147,13 +150,17 @@ def train(
     network = network or NetworkConfig()
     reward = reward or RewardConfig(gamma=config.gamma)
 
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
     venv = build_vec_env(config, network, reward, subprocess=subprocess)
     probe = DynamicRoutingEnv(config=network, reward=reward, seed=config.seed)
     agent = build_agent(venv, config, probe)
+    # CSV alongside stdout so the learning curve survives the run; `ep_rew_mean`
+    # comes off the Monitor wrapper, i.e. raw episode reward before VecNormalize.
+    agent.set_logger(configure(str(out), ["stdout", "csv"]))
     agent.learn(total_timesteps=config.total_timesteps, progress_bar=False)
 
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
     agent.save(out / "agent")
     venv.save(str(out / "vecnormalize.pkl"))
     venv.close()
@@ -179,11 +186,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--cols", type=int, default=NetworkConfig.cols)
     parser.add_argument("--layers", type=int, default=TrainConfig.num_layers)
     parser.add_argument("--seed", type=int, default=TrainConfig.seed)
+    parser.add_argument("--ent-coef", type=float, default=TrainConfig.ent_coef)
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument(
         "--bottleneck-mode",
         choices=("shaping", "absolute"),
         default=RewardConfig.bottleneck_mode,
+    )
+    parser.add_argument(
+        "--action-head-gain", type=float, default=TrainConfig.action_head_gain
+    )
+    parser.add_argument(
+        "--smoothness-weight", type=float, default=RewardConfig.smoothness_weight
     )
     parser.add_argument("--out", type=str, default="runs/ppo")
     parser.add_argument("--subprocess", action="store_true")
@@ -197,9 +211,15 @@ def main() -> None:
         num_envs=args.num_envs,
         num_layers=args.layers,
         seed=args.seed,
+        action_head_gain=args.action_head_gain,
+        ent_coef=args.ent_coef,
     )
     network = NetworkConfig(rows=args.rows, cols=args.cols)
-    reward = RewardConfig(bottleneck_mode=args.bottleneck_mode, gamma=config.gamma)
+    reward = RewardConfig(
+        bottleneck_mode=args.bottleneck_mode,
+        smoothness_weight=args.smoothness_weight,
+        gamma=config.gamma,
+    )
 
     print("train config:", asdict(config))
     _, table = train(
