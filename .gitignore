@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+runs/
+renders/*.gif
+*.png
+!docs/*.png
+.ruff_cache/
+*.log

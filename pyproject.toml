@@ -1,0 +1,32 @@
+[project]
+name = "dynamic-graph-optimizer"
+version = "0.1.0"
+description = "GNN state encoding + PPO control for routing on a dynamic spatial network"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "torch-geometric>=2.5",
+    "gymnasium>=0.29",
+    "stable-baselines3>=2.3",
+    "networkx>=3.0",
+    "matplotlib>=3.7",
+    "numpy>=1.24",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["dgno"]
+
+[tool.ruff]
+line-length = 92
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "D"]
+ignore = ["D105", "D107", "D203", "D213"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D103", "E402"]
