@@ -57,6 +57,13 @@ shortest-path number. `--bottleneck-mode absolute` swaps in `-w_B * Phi_tau(u')`
 which doesn't telescope and does move the optimum. It scored worse, and I don't
 have a clean explanation for that yet.
 
+The `peak_q` worry turned out to be less serious than this reasoning suggested.
+At 400k the agent's peak backlog sat at 0.746, barely off shortest-path's 0.766,
+which looked like confirmation that shaping gives no bottleneck pressure. At 4M
+it reached 0.602, better than backpressure's 0.672. So throughput and bottleneck
+relief were largely aligned in this environment, and the shaping term wasn't
+costing me the bottleneck objective the way the telescoping argument implied.
+
 ## Why backpressure is the baseline
 
 Minimising the drift of `V(q) = (1/2) sum_i q_i^2` gives, in closed form, routing

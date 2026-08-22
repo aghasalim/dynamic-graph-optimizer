@@ -9,40 +9,39 @@ scored against shortest-path routing and against backpressure on the same seeds.
 
 ![network state](docs/network-state.png)
 
-Node colour is backlog, green borders are sources and blue are sinks. Edge width
-is flow, edge colour is the routing offset.
+The trained agent mid-episode. Node colour is backlog, green borders are sources
+and blue are sinks. Edge width is flow, edge colour is the routing offset.
 
 ## Running it
 
 ```bash
 pip install -e .
 python tests/test_dgno.py
-python -m dgno.train --timesteps 400000
+python -m dgno.train --timesteps 4000000
 python -m dgno.visualize --policy backpressure --steps 150
 ```
 
 ## Results
 
-400k steps, 8 envs, 10 eval episodes on shared seeds. `served` is delivered over
-offered demand, `peak_q` is the episode mean of the worst node's backlog, `churn`
-is how much the action moves per step.
+10 eval episodes on shared seeds. `served` is delivered over offered demand,
+`peak_q` is the episode mean of the worst node's backlog, `churn` is how much the
+action moves per step.
 
 | policy | served | dropped | peak_q | churn |
 |---|---|---|---|---|
 | shortest-path | 0.869 | 0.106 | 0.766 | 0.0000 |
 | backpressure | 0.901 | 0.075 | 0.672 | 0.1994 |
-| PPO + GNN | 0.891 | 0.083 | 0.746 | 0.0002 |
+| PPO + GNN, 400k steps | 0.891 | 0.083 | 0.746 | 0.0002 |
+| PPO + GNN, 4M steps | **0.929** | **0.047** | **0.602** | 0.0155 |
 
-So it beats shortest-path and doesn't reach backpressure. I've left that as-is
-rather than tuning until it wins.
+At 4M steps it beats backpressure on everything, and does it with about a
+thirteenth of the control effort. That last part is the bit I like: backpressure
+buys its throughput by thrashing the routing weights every tick, and the agent
+gets a better result while barely moving them.
 
-The churn column is the useful part. Backpressure sits at 0.199 and the agent at
-0.0002, which means the agent found a fixed rebalance of the routing weights and
-never learned to react to anything. It isn't a wiring bug — I fed the trained
-policy an observation with every queue at 95% full and its output moved by 0.024,
-and its actions only span [-0.278, 0.122] out of [-1, 1]. It responds, barely.
-
-I tried the two obvious fixes and both failed:
+Getting there took a lot more training than I expected. At 400k steps the agent
+is basically static (churn 0.0002) and loses to backpressure. Two ablations at
+400k, both of which I thought would fix it:
 
 | | served | peak_q | churn |
 |---|---|---|---|
@@ -51,11 +50,23 @@ I tried the two obvious fixes and both failed:
 | no churn penalty | 0.891 | 0.746 | 0.0002 |
 | both | 0.875 | 0.767 | 0.0064 |
 
-Raising the action head off its 0.01 init makes things worse. Removing the churn
-penalty changes nothing at all, so that term was never what was holding the agent
-still. Long-run training is the remaining thing to check.
+Raising the action head off its 0.01 init made things worse. Removing the churn
+penalty changed nothing to three decimals. Neither was the problem — it just
+needed roughly 10x the steps. An entropy bonus of 0.01 at 4M also hurt (0.902
+served, 0.682 peak_q), so keeping exploration alive isn't what did it either.
 
-Raw output is in `docs/evaluation-*.txt`.
+One thing that nearly fooled me. Training `ep_rew_mean` is flat across the whole
+4M run, sitting around 235 from 4k steps onward, so the curve in
+`docs/curve-long4M.csv` looks completely converged by 100k. The deterministic
+policy improved anyway: 0.891 to 0.929 served over the same span. Rollout reward
+is collected under a Gaussian with std ~0.35, and the noise cost swamps the
+improvement. I'd have stopped this run early if I'd trusted the curve.
+
+The difference shows up directly in the actions. The 400k policy only spans
+[-0.278, 0.122] of its available [-1, 1] and moves 0.057 when I slam every queue
+to 95% full. The 4M policy uses the full range and moves 0.142.
+
+Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`.
 
 ## How it works
 
@@ -84,7 +95,9 @@ potential-based shaping, so it can't change the optimal policy, only how fast yo
 find it. There's a catch I hit: because it telescopes it also contributes almost
 nothing to episode return, so it gives no real pressure to flatten backlog.
 `--bottleneck-mode absolute` drops the telescoping and does move the optimum, but
-scored worse in practice.
+scored worse in practice. Despite that, `peak_q` still came down a long way once
+the agent trained properly, so throughput and bottleneck relief were less at odds
+here than I assumed.
 
 The GNN is a residual GATv2 stack with edge features. Three layers, because
 congestion spreads one hop per tick and that makes depth a physical quantity
