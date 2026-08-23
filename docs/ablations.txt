@@ -1,0 +1,13 @@
+all policies scored under the same reward and seeds, 10 episodes, 4x5 grid
+
+policy                   return    served   dropped    peak_q    mean_q     churn
+---------------------------------------------------------------------------------
+shortest-path           245.93     0.869     0.106     0.766     0.283    0.0000 
+backpressure            257.28     0.901     0.075     0.672     0.262    0.1994 
+ppo 4M                  272.53     0.929     0.047     0.602     0.268    0.0155 
+ppo 400k (baseline)     256.03     0.891     0.083     0.746     0.285    0.0002 
+ppo 400k gain 1.0       249.71     0.877     0.097     0.759     0.291    0.0069 
+ppo 400k no churn       256.20     0.891     0.083     0.746     0.285    0.0002 
+ppo 400k both           248.65     0.875     0.100     0.767     0.287    0.0064 
+ppo 400k absolute       251.28     0.881     0.094     0.757     0.277    0.0001 
+ppo 4M entropy          260.77     0.902     0.073     0.682     0.278    0.0191 

@@ -84,6 +84,38 @@ def test_checkpoint_policy_uses_its_action_range() -> None:
     assert stacked.std(axis=0).mean() > 0.05, "policy is effectively static over time"
 
 
+def test_ablation_conclusions_hold() -> None:
+    """The two claims the README makes about the failed fixes, re-derived.
+
+    Cheap episode count: this is checking an ordering that is stable, not
+    reproducing the table's decimals.
+    """
+    from dgno.ablations import CHECKPOINTS
+
+    env = DynamicRoutingEnv(seed=0)
+    scores = {}
+    for label in ("ppo 400k (baseline)", "ppo 400k gain 1.0", "ppo 400k no churn"):
+        agent = PPO.load(str(CHECKPOINTS[label].with_suffix("")), device="cpu")
+        scores[label] = evaluate_policy(agent, env, episodes=3)
+
+    baseline = scores["ppo 400k (baseline)"]["served_fraction"]
+    raised_gain = scores["ppo 400k gain 1.0"]["served_fraction"]
+    no_churn = scores["ppo 400k no churn"]["served_fraction"]
+
+    assert raised_gain < baseline, (
+        f"raising the action-head gain was supposed to hurt: "
+        f"{raised_gain:.4f} vs baseline {baseline:.4f}"
+    )
+    # These are genuinely different agents -- a different reward means different
+    # gradients -- they just converge to near-identical behaviour.  The claim is
+    # that the gap is below the precision the README table reports, not that the
+    # weights match.
+    assert abs(no_churn - baseline) < 2e-3, (
+        f"removing the churn penalty was supposed to be immaterial: "
+        f"{no_churn:.6f} vs baseline {baseline:.6f}"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0

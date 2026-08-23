@@ -53,7 +53,9 @@ is basically static (churn 0.0002) and loses to backpressure. Two ablations at
 | both | 0.875 | 0.767 | 0.0064 |
 
 Raising the action head off its 0.01 init made things worse. Removing the churn
-penalty changed nothing to three decimals. Neither was the problem — it just
+penalty landed within 0.0006 served of the baseline, which is below the precision
+of this table -- a different reward does give a different agent, it just converges
+to the same behaviour. Neither was the problem — it just
 needed roughly 10x the steps. An entropy bonus of 0.01 at 4M also hurt (0.902
 served, 0.682 peak_q), so keeping exploration alive isn't what did it either.
 
@@ -110,6 +112,17 @@ stops beating backpressure on throughput or peak backlog, or if it drifts back
 towards a static policy. It runs in CI, so the numbers above are re-derived on
 every push rather than being a table I typed once.
 
+The ablation agents are committed too, under `checkpoints/ablations/`. Re-derive
+that whole table in about 15 seconds:
+
+```bash
+python -m dgno.ablations
+```
+
+It scores every agent under the same reward and seeds, so `return` is comparable
+across rows there -- unlike the per-run files in `docs/`, each of which uses the
+reward its own agent was trained on.
+
 Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
 about four hours on 8 CPU envs.
 
@@ -162,7 +175,8 @@ dgno/models.py      GATv2 encoder, SB3 extractor, policy
 dgno/baselines.py   shortest-path, backpressure, evaluation
 dgno/train.py       PPO config and entry point
 dgno/transfer.py    re-host a trained policy on a different grid
-checkpoints/        the 4M agent from the tables above
+dgno/ablations.py   re-derive the ablation table from the checkpoints
+checkpoints/        the 4M agent and the six ablation agents
 dgno/visualize.py   episode animation
 tests/test_dgno.py  invariants, batching, shaping telescoping
 tests/test_checkpoint.py  re-derives the reported numbers from the checkpoint
