@@ -28,3 +28,6 @@ jobs:
 
       - name: Test
         run: python tests/test_dgno.py
+
+      - name: Verify the committed checkpoint reproduces the reported result
+        run: python tests/test_checkpoint.py

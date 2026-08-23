@@ -34,10 +34,12 @@ action moves per step.
 | PPO + GNN, 400k steps | 0.891 | 0.083 | 0.746 | 0.0002 |
 | PPO + GNN, 4M steps | **0.929** | **0.047** | **0.602** | 0.0155 |
 
-At 4M steps it beats backpressure on everything, and does it with about a
-thirteenth of the control effort. That last part is the bit I like: backpressure
-buys its throughput by thrashing the routing weights every tick, and the agent
-gets a better result while barely moving them.
+At 4M steps it beats backpressure on everything, and does it with roughly an
+order of magnitude less control effort. That last part is the bit I like:
+backpressure buys its throughput by thrashing the routing weights every tick, and
+the agent gets a better result while barely moving them. The exact churn ratio
+moves around with the episode sample (about 13x over 10 episodes, 9x over 5), so
+treat it as a magnitude rather than a figure.
 
 Getting there took a lot more training than I expected. At 400k steps the agent
 is basically static (churn 0.0002) and loses to backpressure. Two ablations at
@@ -88,11 +90,28 @@ tensors copy; the four that don't are the three `edge_index` buffers and
 `log_std`, which is unused in deterministic evaluation.
 
 ```bash
-python -m dgno.transfer --model runs/long4M/agent --grids 3x4,4x5,5x6,6x8,8x10
+python -m dgno.transfer --grids 3x4,4x5,5x6,6x8,8x10
 ```
 
 Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`, transfer
 table in `docs/transfer.txt`.
+
+### Reproducing this
+
+The agent behind both tables is committed at `checkpoints/ppo-gnn-4m.zip` (1.1 MB),
+so you don't have to spend the four hours retraining it:
+
+```bash
+python tests/test_checkpoint.py
+```
+
+That reloads it, re-runs the evaluation against both baselines, and fails if it
+stops beating backpressure on throughput or peak backlog, or if it drifts back
+towards a static policy. It runs in CI, so the numbers above are re-derived on
+every push rather than being a table I typed once.
+
+Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
+about four hours on 8 CPU envs.
 
 ## How it works
 
@@ -143,8 +162,10 @@ dgno/models.py      GATv2 encoder, SB3 extractor, policy
 dgno/baselines.py   shortest-path, backpressure, evaluation
 dgno/train.py       PPO config and entry point
 dgno/transfer.py    re-host a trained policy on a different grid
+checkpoints/        the 4M agent from the tables above
 dgno/visualize.py   episode animation
 tests/test_dgno.py  invariants, batching, shaping telescoping
+tests/test_checkpoint.py  re-derives the reported numbers from the checkpoint
 ```
 
 ## Known gaps

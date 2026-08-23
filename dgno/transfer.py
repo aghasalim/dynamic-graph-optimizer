@@ -7,7 +7,7 @@ topology and copying every shape-compatible parameter therefore transfers the
 learned control rule intact, which is the concrete payoff of keeping the
 architecture permutation-equivariant.
 
-``python -m dgno.transfer --model runs/long4M/agent --grids 3x4,4x5,6x8,8x10``
+``python -m dgno.transfer --grids 3x4,4x5,6x8,8x10``
 """
 
 from __future__ import annotations
@@ -147,7 +147,7 @@ def _parse_grids(text: str) -> list[tuple[int, int]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", type=str, default="runs/long4M/agent")
+    parser.add_argument("--model", type=str, default="checkpoints/ppo-gnn-4m")
     parser.add_argument("--grids", type=str, default="3x4,4x5,6x8,8x10")
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--out", type=str, default="docs/transfer.txt")
