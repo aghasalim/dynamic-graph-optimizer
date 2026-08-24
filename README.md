@@ -1,18 +1,51 @@
 # Dynamic Graph Network Optimizer
 
-A routing simulator where demand and link capacity keep moving, and a PPO agent
-tries to keep traffic flowing. The network state goes through a GNN (PyTorch
-Geometric) and the agent's action is a routing-weight offset on each edge.
+**Can a GNN policy learn routing control that beats backpressure, and does it transfer to graphs it never saw?**
 
-I built this to have a project where the baselines were real, so everything is
-scored against shortest-path routing and against backpressure on the same seeds.
+[![ci](https://img.shields.io/badge/ci-passing-brightgreen.svg)](.github/workflows/ci.yml)
+[![tests](https://img.shields.io/badge/tests-13%20passing-brightgreen.svg)](tests/)
+[![licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-![network state](docs/network-state.png)
+![the trained agent mid-episode](docs/network-state.png)
 
-The trained agent mid-episode. Node colour is backlog, green borders are sources
-and blue are sinks. Edge width is flow, edge colour is the routing offset.
+<sub>The trained agent mid-episode. Node colour is backlog, green borders are
+sources and blue are sinks; edge width is flow and edge colour is the routing
+offset.</sub>
 
-## Running it
+---
+
+## Abstract
+
+Routing on a spatial network under time-varying demand and random link failure is
+a control problem with a strong classical baseline: backpressure scheduling is
+throughput-optimal for this class of queueing network, and minimising the drift of
+a quadratic Lyapunov function reproduces it in closed form. This work asks whether
+a graph neural network policy trained with PPO can beat it, and whether what it
+learns is a property of the graph it trained on.
+
+At 4M steps the agent beats backpressure on every metric — 0.929 served against
+0.901, 0.047 dropped against 0.075, 0.602 mean peak backlog against 0.672 — while
+moving the routing weights roughly an order of magnitude less. Trained on a 4x5
+grid, it stays ahead on grids up to 8x10, four times the nodes and 4.6 times the
+edges, with no retraining and no decay in the margin. That transfer is the payoff
+of keeping the policy permutation-equivariant: 113 of 117 tensors copy across a
+change of topology, and the four that do not are `edge_index` buffers and
+`log_std`.
+
+Getting there took ten times the training budget I expected, and two plausible
+fixes that both made things worse. Those are reported alongside the result.
+
+**Contributions.** (i) A queueing simulator with spillback, incidents and
+per-source rush-hour phases where the harm of a routing decision is measurable.
+(ii) A reward whose congestion term is potential-based shaping, with the
+telescoping property verified by test rather than asserted. (iii) An equivariant
+policy head that replaces SB3's dense action layer, with the transfer experiment
+that justifies it. (iv) Ablations showing which of the obvious fixes did not work.
+
+---
+
+## 1. Running it
+
 
 ```bash
 pip install -e .
@@ -21,7 +54,9 @@ python -m dgno.train --timesteps 4000000
 python -m dgno.visualize --policy backpressure --steps 150
 ```
 
-## Results
+## 2. Results
+
+### 2.1 Against the baselines
 
 10 eval episodes on shared seeds. `served` is delivered over offered demand,
 `peak_q` is the episode mean of the worst node's backlog, `churn` is how much the
@@ -88,7 +123,14 @@ The difference shows up directly in the actions. The 400k policy only spans
 [-0.278, 0.122] of its available [-1, 1] and moves 0.057 when I slam every queue
 to 95% full. The 4M policy uses the full range and moves 0.142.
 
-### Transfer to other grid sizes
+![every checkpoint on the same seeds](docs/ablations.png)
+
+Every 400k variant sits on the wrong side of the backpressure line, including both
+fixes I expected to work. Raising the action-head gain made it worse; removing the
+churn penalty changed nothing to three decimals. The only thing that moved it was
+ten times the budget.
+
+### 2.2 Transfer to other grid sizes
 
 Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is
 backpressure.
@@ -121,7 +163,7 @@ python -m dgno.transfer --grids 3x4,4x5,5x6,6x8,8x10
 Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`, transfer
 table in `docs/transfer.txt`.
 
-### Reproducing this
+## 3. Reproducibility
 
 The agent behind both tables is committed at `checkpoints/ppo-gnn-4m.zip` (1.1 MB),
 so you don't have to spend the four hours retraining it:
@@ -149,7 +191,16 @@ reward its own agent was trained on.
 Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
 about four hours on 8 CPU envs.
 
-## How it works
+## 4. Method
+
+![what each reward term contributes over an episode](docs/reward-anatomy.png)
+
+The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`,
+which is what makes it policy-invariant. The same property is why it contributes
+almost nothing to episode return: over 300 steps throughput accumulates 273.6 while
+the shaping term telescopes to 0.69, a factor of 400. That is the mechanism behind
+the `peak_q` result at 400k, and it is a property of the theorem rather than a bug —
+but it does mean shaping alone will not buy a bottleneck objective.
 
 A 4-connected grid, demand injected on the left column and absorbed on the right.
 Each source has its own rush-hour phase so surges hit different corners at
@@ -189,7 +240,7 @@ with a weight-shared per-edge head.
 
 Longer write-up of the reward and the GNN choices: [docs/design-notes.md](docs/design-notes.md).
 
-## Layout
+## 5. Repository layout
 
 ```
 dgno/simulator.py   queueing dynamics, demand, incidents, spillback
@@ -206,7 +257,7 @@ tests/test_dgno.py  invariants, batching, shaping telescoping
 tests/test_checkpoint.py  re-derives the reported numbers from the checkpoint
 ```
 
-## Known gaps
+## 6. Limitations
 
 Spillback rationing is single-pass, so a throttled node can leave its upstream
 slightly over-served within the same tick. It corrects on the next one.
