@@ -24,7 +24,12 @@ from .baselines import BackpressurePolicy, ShortestPathPolicy
 from .env import DynamicRoutingEnv, RewardConfig
 from .simulator import NetworkConfig
 
-__all__ = ["EpisodeRecording", "record_episode", "animate_episode"]
+__all__ = [
+    "EpisodeRecording",
+    "record_episode",
+    "animate_episode",
+    "draw_network_state",
+]
 
 QUEUE_CMAP = plt.get_cmap("YlOrRd")
 ACTION_CMAP = plt.get_cmap("coolwarm")
@@ -62,6 +67,83 @@ def record_episode(
         if terminated or truncated:
             break
     return recording
+
+
+def draw_network_state(
+    ax,
+    network,
+    frame: dict,
+    capacity_scale: float,
+    title: str = "",
+    labels: bool = True,
+    graph=None,
+    positions=None,
+    edge_list=None,
+) -> None:
+    """Render one network snapshot onto ``ax``.
+
+    Shared by the animator and the README figure script so both stay in step;
+    ``graph``/``positions``/``edge_list`` can be passed in when the caller already
+    built them, which the animator does once per episode rather than per frame.
+    """
+    if graph is None:
+        graph = network.to_networkx()
+    if positions is None:
+        positions = {n: tuple(network.positions[n]) for n in graph.nodes}
+    if edge_list is None:
+        pairs = zip(network.src, network.dst, strict=True)
+        edge_list = [(int(a), int(b)) for a, b in pairs]
+
+    ax.clear()
+    nx.draw_networkx_edges(
+        graph,
+        positions,
+        edgelist=edge_list,
+        width=0.6 + 4.5 * frame["flow"] / capacity_scale,
+        edge_color=[ACTION_CMAP(0.5 * (a + 1.0)) for a in frame["action"]],
+        connectionstyle="arc3,rad=0.13",
+        arrowsize=9,
+        alpha=0.85,
+        ax=ax,
+    )
+    flags = zip(edge_list, frame["incident"], strict=True)
+    incident = [edge for edge, flag in flags if flag]
+    if incident:
+        nx.draw_networkx_edges(
+            graph,
+            positions,
+            edgelist=incident,
+            width=2.4,
+            edge_color="black",
+            style="dashed",
+            connectionstyle="arc3,rad=0.13",
+            arrowsize=1,
+            ax=ax,
+        )
+
+    borders = np.where(network.is_source, "#1a9850", "0.25")
+    borders = np.where(network.is_sink, "#2166ac", borders)
+    nx.draw_networkx_nodes(
+        graph,
+        positions,
+        node_color=[QUEUE_CMAP(q) for q in frame["queues"]],
+        node_size=620 if labels else 260,
+        edgecolors=list(borders),
+        linewidths=np.where(network.is_source | network.is_sink, 2.6, 0.8),
+        ax=ax,
+    )
+    if labels:
+        nx.draw_networkx_labels(
+            graph,
+            positions,
+            labels={n: f"{frame['queues'][n]:.2f}" for n in graph.nodes},
+            font_size=7,
+            ax=ax,
+        )
+    if title:
+        ax.set_title(title, fontsize=11)
+    ax.set_axis_off()
+    ax.margins(0.08)
 
 
 class EpisodeAnimator:
@@ -107,64 +189,21 @@ class EpisodeAnimator:
         # ponytail: full redraw per frame -- ~300 frames renders in seconds.
         # Swap for LineCollection offset updates only if frame counts grow.
         frame = self.recording.frames[index]
-        self.ax_graph.clear()
-
-        widths = 0.6 + 4.5 * frame["flow"] / self.capacity_scale
-        edge_colors = [ACTION_CMAP(0.5 * (a + 1.0)) for a in frame["action"]]
-        nx.draw_networkx_edges(
-            self.graph,
-            self.positions,
-            edgelist=self.edge_list,
-            width=widths,
-            edge_color=edge_colors,
-            connectionstyle="arc3,rad=0.13",
-            arrowsize=9,
-            alpha=0.85,
-            ax=self.ax_graph,
-        )
-        flags = zip(self.edge_list, frame["incident"], strict=True)
-        incident = [edge for edge, flag in flags if flag]
-        if incident:
-            nx.draw_networkx_edges(
-                self.graph,
-                self.positions,
-                edgelist=incident,
-                width=2.4,
-                edge_color="black",
-                style="dashed",
-                connectionstyle="arc3,rad=0.13",
-                arrowsize=1,
-                ax=self.ax_graph,
-            )
-
-        borders = np.where(self.net.is_source, "#1a9850", "0.25")
-        borders = np.where(self.net.is_sink, "#2166ac", borders)
-        nx.draw_networkx_nodes(
-            self.graph,
-            self.positions,
-            node_color=[QUEUE_CMAP(q) for q in frame["queues"]],
-            node_size=620,
-            edgecolors=list(borders),
-            linewidths=np.where(self.net.is_source | self.net.is_sink, 2.6, 0.8),
-            ax=self.ax_graph,
-        )
-        nx.draw_networkx_labels(
-            self.graph,
-            self.positions,
-            labels={n: f"{frame['queues'][n]:.2f}" for n in self.graph.nodes},
-            font_size=7,
-            ax=self.ax_graph,
-        )
-
         served = self.recording.throughput[index]
-        self.ax_graph.set_title(
-            f"t={frame['t']:3d}   throughput={served:6.2f}   "
-            f"peak backlog={frame['queues'].max():.2f}   "
-            f"incidents={int(np.sum(frame['incident']) // 2)}",
-            fontsize=11,
+        draw_network_state(
+            self.ax_graph,
+            self.net,
+            frame,
+            self.capacity_scale,
+            title=(
+                f"t={frame['t']:3d}   throughput={served:6.2f}   "
+                f"peak backlog={frame['queues'].max():.2f}   "
+                f"incidents={int(np.sum(frame['incident']) // 2)}"
+            ),
+            graph=self.graph,
+            positions=self.positions,
+            edge_list=self.edge_list,
         )
-        self.ax_graph.set_axis_off()
-        self.ax_graph.margins(0.08)
         self.cursor.set_xdata([index, index])
 
     def animate(self, output: Path, fps: int = 12) -> Path:

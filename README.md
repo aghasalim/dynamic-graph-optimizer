@@ -34,6 +34,14 @@ action moves per step.
 | PPO + GNN, 400k steps | 0.891 | 0.083 | 0.746 | 0.0002 |
 | PPO + GNN, 4M steps | **0.929** | **0.047** | **0.602** | 0.0155 |
 
+![policy comparison](docs/policy-comparison.png)
+
+Same episode, same seed, same timestep. Shortest-path piles backlog onto a few
+nodes and leaves most edges idle. Backpressure spreads it better, but its routing
+offsets flip sign constantly, red and blue in the same picture, and that is the
+churn. The agent pushes consistently in one direction and keeps every node in
+roughly the same band.
+
 At 4M steps it beats backpressure on everything, and does it with roughly an
 order of magnitude less control effort. That last part is the bit I like:
 backpressure buys its throughput by thrashing the routing weights every tick, and
@@ -59,12 +67,22 @@ to the same behaviour. Neither was the problem — it just
 needed roughly 10x the steps. An entropy bonus of 0.01 at 4M also hurt (0.902
 served, 0.682 peak_q), so keeping exploration alive isn't what did it either.
 
-One thing that nearly fooled me. Training `ep_rew_mean` is flat across the whole
-4M run, sitting around 235 from 4k steps onward, so the curve in
-`docs/curve-long4M.csv` looks completely converged by 100k. The deterministic
-policy improved anyway: 0.891 to 0.929 served over the same span. Rollout reward
-is collected under a Gaussian with std ~0.35, and the noise cost swamps the
-improvement. I'd have stopped this run early if I'd trusted the curve.
+![learning curve](docs/learning-curve.png)
+
+I misread this curve at first and want to leave the mistake in. I sampled eight
+evenly spaced points from the log and read them as flat, so I concluded that 4M
+steps had bought nothing and that I was up against a reward ceiling. Plotting the
+whole thing shows a steady rise instead: bucket means go 226, 229, 235, 236, 240,
+242, a trend of +3.4 return per million steps. What tricked me is the very first
+logged row, at 4k steps before the policy had learned anything, which happened to
+be a transient spike of 238. Against that, "242 at 2.6M" looks like no progress.
+The curve actually dips to 222 by 100k and climbs from there.
+
+The real gap in that plot is vertical, not horizontal. Rollout reward tops out
+around 243 while the same policy evaluated greedily returns 272.5, because
+rollouts are collected under a Gaussian with std ~0.35 and the exploration noise
+costs about 30 points of return. So the training curve understates the policy by
+a wide margin, which is worth knowing before you compare it to a baseline number.
 
 The difference shows up directly in the actions. The 400k policy only spans
 [-0.278, 0.122] of its available [-1, 1] and moves 0.057 when I slam every queue
@@ -84,12 +102,17 @@ backpressure.
 | 8x10 | 80 | 284 | 0.842 / 0.871 / **0.898** | 0.806 / 0.751 / **0.706** |
 
 It still beats backpressure on a grid with four times the nodes and 4.6 times the
-edges, and the margin doesn't shrink as the network grows. This is the thing the
+edges. The plot does show a home-field bump: the biggest margin, +0.028 served,
+is on 4x5, the grid it trained on, and 5x6 is the weakest at +0.009. But it
+recovers to +0.025 and +0.027 on the two largest grids, so the advantage is not
+decaying with scale, it just isn't perfectly flat either. This is the thing the
 equivariant action head was for — nothing in the policy is tied to graph size
 except the `edge_index` buffer and `log_std`, so rebuilding the policy for a new
 topology and copying the weights transfers the control rule intact. 113 of 117
 tensors copy; the four that don't are the three `edge_index` buffers and
 `log_std`, which is unused in deterministic evaluation.
+
+![transfer scaling](docs/transfer-scaling.png)
 
 ```bash
 python -m dgno.transfer --grids 3x4,4x5,5x6,6x8,8x10
@@ -178,6 +201,7 @@ dgno/transfer.py    re-host a trained policy on a different grid
 dgno/ablations.py   re-derive the ablation table from the checkpoints
 checkpoints/        the 4M agent and the six ablation agents
 dgno/visualize.py   episode animation
+dgno/figures.py     regenerate the figures in this README
 tests/test_dgno.py  invariants, batching, shaping telescoping
 tests/test_checkpoint.py  re-derives the reported numbers from the checkpoint
 ```
