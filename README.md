@@ -23,13 +23,13 @@ a quadratic Lyapunov function reproduces it in closed form. This work asks wheth
 a graph neural network policy trained with PPO can beat it, and whether what it
 learns is a property of the graph it trained on.
 
-At 4M steps the agent beats backpressure on every metric — 0.929 served against
-0.901, 0.047 dropped against 0.075, 0.602 mean peak backlog against 0.672 — while
+At 4M steps the agent beats backpressure on every metric, 0.929 served against
+0.901, 0.047 dropped against 0.075, 0.602 mean peak backlog against 0.672, while
 moving the routing weights roughly an order of magnitude less. Trained on a 4x5
 grid, it stays ahead on grids up to 8x10, four times the nodes and 4.6 times the
 edges, with no retraining and no decay in the margin. That transfer is the payoff
 of keeping the policy permutation-equivariant: 113 of 117 tensors copy across a
-change of topology, and the four that do not are `edge_index` buffers and
+change of topology, and the four that do not are`edge_index` buffers and
 `log_std`.
 
 Getting there took ten times the training budget I expected, and two plausible
@@ -58,8 +58,8 @@ python -m dgno.visualize --policy backpressure --steps 150
 
 ### 2.1 Against the baselines
 
-10 eval episodes on shared seeds. `served` is delivered over offered demand,
-`peak_q` is the episode mean of the worst node's backlog, `churn` is how much the
+10 eval episodes on shared seeds.`served` is delivered over offered demand,
+`peak_q` is the episode mean of the worst node's backlog,`churn` is how much the
 action moves per step.
 
 | policy | served | dropped | peak_q | churn |
@@ -98,7 +98,7 @@ is basically static (churn 0.0002) and loses to backpressure. Two ablations at
 Raising the action head off its 0.01 init made things worse. Removing the churn
 penalty landed within 0.0006 served of the baseline, which is below the precision
 of this table -- a different reward does give a different agent, it just converges
-to the same behaviour. Neither was the problem — it just
+to the same behaviour. Neither was the problem, it just
 needed roughly 10x the steps. An entropy bonus of 0.01 at 4M also hurt (0.902
 served, 0.682 peak_q), so keeping exploration alive isn't what did it either.
 
@@ -132,7 +132,7 @@ ten times the budget.
 
 ### 2.2 Transfer to other grid sizes
 
-Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is
+Trained on 4x5, evaluated with no retraining.`sp` is shortest-path,`bp` is
 backpressure.
 
 | grid | nodes | edges | served sp / bp / ppo | peak_q sp / bp / ppo |
@@ -148,10 +148,10 @@ edges. The plot does show a home-field bump: the biggest margin, +0.028 served,
 is on 4x5, the grid it trained on, and 5x6 is the weakest at +0.009. But it
 recovers to +0.025 and +0.027 on the two largest grids, so the advantage is not
 decaying with scale, it just isn't perfectly flat either. This is the thing the
-equivariant action head was for — nothing in the policy is tied to graph size
-except the `edge_index` buffer and `log_std`, so rebuilding the policy for a new
+equivariant action head was for, nothing in the policy is tied to graph size
+except the`edge_index` buffer and`log_std`, so rebuilding the policy for a new
 topology and copying the weights transfers the control rule intact. 113 of 117
-tensors copy; the four that don't are the three `edge_index` buffers and
+tensors copy; the four that don't are the three`edge_index` buffers and
 `log_std`, which is unused in deterministic evaluation.
 
 ![transfer scaling](docs/transfer-scaling.png)
@@ -160,12 +160,12 @@ tensors copy; the four that don't are the three `edge_index` buffers and
 python -m dgno.transfer --grids 3x4,4x5,5x6,6x8,8x10
 ```
 
-Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`, transfer
-table in `docs/transfer.txt`.
+Raw output in`docs/evaluation-*.txt`, curves in`docs/curve-*.csv`, transfer
+table in`docs/transfer.txt`.
 
 ## 3. Reproducibility
 
-The agent behind both tables is committed at `checkpoints/ppo-gnn-4m.zip` (1.1 MB),
+The agent behind both tables is committed at`checkpoints/ppo-gnn-4m.zip` (1.1 MB),
 so you don't have to spend the four hours retraining it:
 
 ```bash
@@ -177,29 +177,29 @@ stops beating backpressure on throughput or peak backlog, or if it drifts back
 towards a static policy. It runs in CI, so the numbers above are re-derived on
 every push rather than being a table I typed once.
 
-The ablation agents are committed too, under `checkpoints/ablations/`. Re-derive
+The ablation agents are committed too, under`checkpoints/ablations/`. Re-derive
 that whole table in about 15 seconds:
 
 ```bash
 python -m dgno.ablations
 ```
 
-It scores every agent under the same reward and seeds, so `return` is comparable
-across rows there -- unlike the per-run files in `docs/`, each of which uses the
+It scores every agent under the same reward and seeds, so`return` is comparable
+across rows there -- unlike the per-run files in`docs/`, each of which uses the
 reward its own agent was trained on.
 
-Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
+Retraining from scratch, if you want to:`python -m dgno.train --timesteps 4000000`,
 about four hours on 8 CPU envs.
 
 ## 4. Method
 
 ![what each reward term contributes over an episode](docs/reward-anatomy.png)
 
-The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`,
+The congestion term is written as potential-based shaping,`gamma*Phi(s') - Phi(s)`,
 which is what makes it policy-invariant. The same property is why it contributes
 almost nothing to episode return: over 300 steps throughput accumulates 273.6 while
 the shaping term telescopes to 0.69, a factor of 400. That is the mechanism behind
-the `peak_q` result at 400k, and it is a property of the theorem rather than a bug —
+the`peak_q` result at 400k, and it is a property of the theorem rather than a bug
 but it does mean shaping alone will not buy a bottleneck objective.
 
 A 4-connected grid, demand injected on the left column and absorbed on the right.
@@ -227,14 +227,14 @@ potential-based shaping, so it can't change the optimal policy, only how fast yo
 find it. There's a catch I hit: because it telescopes it also contributes almost
 nothing to episode return, so it gives no real pressure to flatten backlog.
 `--bottleneck-mode absolute` drops the telescoping and does move the optimum, but
-scored worse in practice. Despite that, `peak_q` still came down a long way once
+scored worse in practice. Despite that,`peak_q` still came down a long way once
 the agent trained properly, so throughput and bottleneck relief were less at odds
 here than I assumed.
 
 The GNN is a residual GATv2 stack with edge features. Three layers, because
 congestion spreads one hop per tick and that makes depth a physical quantity
-rather than a taste one. One detail worth knowing if you read `models.py`: SB3
-would normally put a dense `Linear(latent, num_edges)` on the policy output,
+rather than a taste one. One detail worth knowing if you read`models.py`: SB3
+would normally put a dense`Linear(latent, num_edges)` on the policy output,
 which throws away the permutation symmetry the GNN is there for, so I replace it
 with a weight-shared per-edge head.
 
