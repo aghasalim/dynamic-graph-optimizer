@@ -114,7 +114,7 @@ class DynamicRoutingEnv(gym.Env):
         self._prev_action = np.zeros(net.num_edges)
         self._prev_potential = 0.0
 
-    # -- observation -------------------------------------------------------
+    #: observation -------------------------------------------------------
 
     def _node_features(self) -> np.ndarray:
         sim, net, cfg = self.sim, self.sim.net, self.config
@@ -160,7 +160,7 @@ class DynamicRoutingEnv(gym.Env):
             self.sim.normalised_queues, self.reward_config.bottleneck_temperature
         )
 
-    # -- gymnasium API -----------------------------------------------------
+    #: gymnasium API -----------------------------------------------------
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None

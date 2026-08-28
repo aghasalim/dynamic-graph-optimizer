@@ -158,7 +158,7 @@ class NetworkSimulator:
         self.rng = rng if rng is not None else np.random.default_rng()
         self.reset()
 
-    # -- lifecycle ---------------------------------------------------------
+    #: lifecycle ---------------------------------------------------------
 
     def reset(self, rng: np.random.Generator | None = None) -> None:
         """Start a fresh episode; edge capacities are resampled per episode."""
@@ -177,7 +177,7 @@ class NetworkSimulator:
         self.last_outflow = np.zeros(net.num_nodes)
         self.source_phase = self.rng.uniform(0.0, 2.0 * np.pi, net.source_ids.size)
 
-    # -- per-step pieces ---------------------------------------------------
+    #: per-step pieces ---------------------------------------------------
 
     def _advance_incidents(self) -> None:
         active = self.incident_timer > 0
@@ -210,7 +210,7 @@ class NetworkSimulator:
     def routing_split(self, action: np.ndarray) -> np.ndarray:
         """Segmented softmax over each node's out-edges.
 
-        ``logit_e = -bias * hops(dst_e) + gain * action_e`` — a zero action leaves
+        ``logit_e = -bias * hops(dst_e) + gain * action_e``.  A zero action leaves
         pure shortest-path routing, so the agent learns a *correction* to a sane
         default rather than a routing policy from scratch.
         """
@@ -236,7 +236,7 @@ class NetworkSimulator:
             scale = np.where(arriving > 0.0, np.minimum(1.0, headroom / arriving), 1.0)
         return flow * scale[net.dst]
 
-    # -- main entry point --------------------------------------------------
+    #: main entry point --------------------------------------------------
 
     def step(self, action: np.ndarray) -> StepMeasurements:
         """Advance one tick under ``action`` and return the step's measurements."""
@@ -274,7 +274,7 @@ class NetworkSimulator:
             split=split,
         )
 
-    # -- derived quantities ------------------------------------------------
+    #: derived quantities ------------------------------------------------
 
     @property
     def utilisation(self) -> np.ndarray:

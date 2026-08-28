@@ -3,7 +3,7 @@
 Every agent is scored under the same reward and the same seeds, including the one
 trained with ``bottleneck_mode=absolute``.  That makes the ``return`` column
 comparable across rows, which it is not in the individual ``runs/*/evaluation.txt``
-files -- those each use the reward the agent was trained on.  ``served``,
+files, those each use the reward the agent was trained on.  ``served``,
 ``peak_q`` and ``churn`` are reward-independent and identical either way.
 
 ``python -m dgno.ablations``

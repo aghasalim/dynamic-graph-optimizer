@@ -36,7 +36,7 @@ class TrainConfig:
     continuous action the default 10 epochs at 3e-4 drives ``clip_fraction`` past
     0.3, which means most of each minibatch is being clipped and the effective
     update is both large and biased.  ``log_std_init = -1`` starts the Gaussian at
-    sigma ~ 0.37 rather than 1.0 -- at sigma = 1 nearly every sampled action
+    sigma ~ 0.37 rather than 1.0, at sigma = 1 nearly every sampled action
     saturates the [-1, 1] box, so the agent spends its early samples exploring
     routing configurations it can never actually execute.
     """
@@ -92,7 +92,7 @@ def build_vec_env(
     """Vectorised training env.
 
     Observations are already normalised by construction, so only the reward is
-    running-normalised -- reward scale acts as an implicit multiplier on the value
+    running-normalised, reward scale acts as an implicit multiplier on the value
     loss, and the throughput and shaping terms differ by an order of magnitude.
     """
     fns = [

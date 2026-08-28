@@ -28,7 +28,7 @@ except `entropy-4m.zip`:
 | `entropy-4m.zip` | 4M steps with `ent_coef=0.01` |
 
 Re-derive the whole table with `python -m dgno.ablations`. It scores every agent
-under the same reward and seeds, so `return` is comparable across rows -- unlike
+under the same reward and seeds, so `return` is comparable across rows, unlike
 the per-run `evaluation.txt` files, each of which uses the reward its agent was
 trained on.
 

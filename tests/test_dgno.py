@@ -110,7 +110,7 @@ def test_graph_extractor_batching_matches_single_samples() -> None:
 
     The batch is built by offsetting a replicated ``edge_index`` by ``b * num_nodes``.
     An off-by-one there silently wires batch elements together and still trains,
-    just badly -- so this is the one bug worth a dedicated check.
+    just badly, so this is the one bug worth a dedicated check.
     """
     env = DynamicRoutingEnv(seed=5)
     extractor = GraphFeaturesExtractor(

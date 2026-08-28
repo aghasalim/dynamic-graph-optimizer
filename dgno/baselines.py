@@ -2,8 +2,8 @@
 
 Without these the training curve is unfalsifiable: a rising episode return says
 nothing about whether the agent beat the routing rule you would have shipped
-anyway.  ``BackpressurePolicy`` is the strong one -- max-weight scheduling is
-throughput-optimal for this class of queueing network -- so the interesting
+anyway.  ``BackpressurePolicy`` is the strong one, max-weight scheduling is
+throughput-optimal for this class of queueing network, so the interesting
 question is whether PPO beats it by exploiting the demand clock it can see and
 backpressure cannot.
 """

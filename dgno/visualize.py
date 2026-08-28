@@ -23,6 +23,7 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from .baselines import BackpressurePolicy, ShortestPathPolicy
 from .env import DynamicRoutingEnv, RewardConfig
 from .simulator import NetworkConfig
+from .style import PALETTE
 
 __all__ = [
     "EpisodeRecording",
@@ -121,8 +122,8 @@ def draw_network_state(
             ax=ax,
         )
 
-    borders = np.where(network.is_source, "#1a9850", "0.25")
-    borders = np.where(network.is_sink, "#2166ac", borders)
+    borders = np.where(network.is_source, PALETTE[2], "0.25")
+    borders = np.where(network.is_sink, PALETTE[0], borders)
     nx.draw_networkx_nodes(
         graph,
         positions,
@@ -169,14 +170,14 @@ class EpisodeAnimator:
     def _setup_series_axis(self) -> None:
         steps = np.arange(len(self.recording))
         self.ax_series.plot(
-            steps, self.recording.throughput, lw=1.2, color="#2166ac", label="throughput"
+            steps, self.recording.throughput, lw=1.2, color=PALETTE[0], label="throughput"
         )
         peak = max(max(self.recording.throughput, default=1.0), 1.0)
         self.ax_series.plot(
             steps,
             np.asarray(self.recording.max_queue) * peak,
             lw=1.2,
-            color="#b2182b",
+            color=PALETTE[1],
             label="peak backlog (scaled)",
         )
         self.ax_series.set_xlim(0, max(len(self.recording) - 1, 1))
@@ -186,7 +187,7 @@ class EpisodeAnimator:
         self.cursor = self.ax_series.axvline(0, color="0.3", lw=1.0, ls="--")
 
     def _draw_frame(self, index: int) -> None:
-        # ponytail: full redraw per frame -- ~300 frames renders in seconds.
+        # ponytail: full redraw per frame: ~300 frames renders in seconds.
         # Swap for LineCollection offset updates only if frame counts grow.
         frame = self.recording.frames[index]
         served = self.recording.throughput[index]

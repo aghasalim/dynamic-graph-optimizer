@@ -3,7 +3,7 @@
 The point of committing a 1.1 MB policy is that the headline claim stops being a
 number in a markdown table and becomes something CI re-derives.  Assertions are
 written as inequalities against the baselines rather than as exact floats,
-because the checkpoint was trained on macOS/arm64 and CI runs Linux/x86 -- the
+because the checkpoint was trained on macOS/arm64 and CI runs Linux/x86, the
 ranking is stable across platforms, the sixth decimal place is not.
 """
 
@@ -49,7 +49,7 @@ def test_checkpoint_beats_both_baselines_on_the_training_grid() -> None:
     assert agent_metrics["served_fraction"] > 0.90, agent_metrics["served_fraction"]
     assert agent_metrics["mean_peak_queue"] < 0.65, agent_metrics["mean_peak_queue"]
     # Backpressure buys throughput by thrashing the controls; the agent should not.
-    # The exact ratio is sample-dependent -- ~13x at 10 episodes, ~9x at 5 -- so this
+    # The exact ratio is sample-dependent: ~13x at 10 episodes, ~9x at 5: so this
     # bound is deliberately loose and only asserts the qualitative gap.
     assert agent_metrics["action_churn"] < 0.25 * classical["action_churn"], (
         f"agent churn {agent_metrics['action_churn']:.4f} vs "
@@ -106,8 +106,8 @@ def test_ablation_conclusions_hold() -> None:
         f"raising the action-head gain was supposed to hurt: "
         f"{raised_gain:.4f} vs baseline {baseline:.4f}"
     )
-    # These are genuinely different agents -- a different reward means different
-    # gradients -- they just converge to near-identical behaviour.  The claim is
+    # These are genuinely different agents: a different reward means different
+    # gradients: they just converge to near-identical behaviour.  The claim is
     # that the gap is below the precision the README table reports, not that the
     # weights match.
     assert abs(no_churn - baseline) < 2e-3, (
