@@ -6,8 +6,8 @@ Long form detail moved out of the README.
 ### 2.1 Against the baselines
 
 
-10 eval episodes on shared seeds.`served` is delivered over offered demand,
-`peak_q` is the episode mean of the worst node's backlog,`churn` is how much the
+10 eval episodes on shared seeds. `served` is delivered over offered demand,
+`peak_q` is the episode mean of the worst node's backlog, `churn` is how much the
 action moves per step.
 
 | policy | served | dropped | peak_q | mean_q | churn |
@@ -90,7 +90,7 @@ ten times the budget.
 ### 2.2 Transfer to other grid sizes
 
 
-Trained on 4x5, evaluated with no retraining.`sp` is shortest-path,`bp` is
+Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is
 backpressure.
 
 | grid | nodes | edges | served sp / bp / ppo | peak_q sp / bp / ppo |
@@ -107,9 +107,9 @@ is on 4x5, the grid it trained on, and 5x6 is the weakest at +0.009. But it
 recovers to +0.025 and +0.027 on the two largest grids, so the advantage is not
 decaying with scale, it just isn't perfectly flat either. This is the thing the
 equivariant action head was for, nothing in the policy is tied to graph size
-except the`edge_index` buffer and`log_std`, so rebuilding the policy for a new
+except the `edge_index` buffer and `log_std`, so rebuilding the policy for a new
 topology and copying the weights transfers the control rule intact. 113 of 117
-tensors copy; the four that don't are the three`edge_index` buffers and
+tensors copy; the four that don't are the three `edge_index` buffers and
 `log_std`, which is unused in deterministic evaluation.
 
 ![transfer scaling](../docs/transfer-scaling.png)
@@ -118,8 +118,8 @@ tensors copy; the four that don't are the three`edge_index` buffers and
 python -m dgno.transfer --grids 3x4,4x5,5x6,6x8,8x10
 ```
 
-Raw output in`docs/evaluation-*.txt`, curves in`docs/curve-*.csv`, transfer
-table in`docs/transfer.txt`.
+Raw output in `docs/evaluation-*.txt`, curves in `docs/curve-*.csv`, transfer
+table in `docs/transfer.txt`.
 
 
 ## 4. Method
@@ -127,11 +127,11 @@ table in`docs/transfer.txt`.
 
 ![what each reward term contributes over an episode](../docs/reward-anatomy.png)
 
-The congestion term is written as potential-based shaping,`gamma*Phi(s') - Phi(s)`,
+The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`,
 which is what makes it policy-invariant. The same property is why it contributes
 almost nothing to episode return: over 300 steps throughput accumulates 273.6 while
 the shaping term telescopes to 0.69, a factor of 400. That is the mechanism behind
-the`peak_q` result at 400k, and it is a property of the theorem rather than a bug
+the `peak_q` result at 400k, and it is a property of the theorem rather than a bug
 but it does mean shaping alone will not buy a bottleneck objective.
 
 A 4-connected grid, demand injected on the left column and absorbed on the right.
@@ -159,14 +159,14 @@ potential-based shaping, so it can't change the optimal policy, only how fast yo
 find it. There's a catch I hit: because it telescopes it also contributes almost
 nothing to episode return, so it gives no real pressure to flatten backlog.
 `--bottleneck-mode absolute` drops the telescoping and does move the optimum, but
-scored worse in practice. Despite that,`peak_q` still came down a long way once
+scored worse in practice. Despite that, `peak_q` still came down a long way once
 the agent trained properly, so throughput and bottleneck relief were less at odds
 here than I assumed.
 
 The GNN is a residual GATv2 stack with edge features. Three layers, because
 congestion spreads one hop per tick and that makes depth a physical quantity
-rather than a taste one. One detail worth knowing if you read`models.py`: SB3
-would normally put a dense`Linear(latent, num_edges)` on the policy output,
+rather than a taste one. One detail worth knowing if you read `models.py`: SB3
+would normally put a dense `Linear(latent, num_edges)` on the policy output,
 which throws away the permutation symmetry the GNN is there for, so I replace it
 with a weight-shared per-edge head.
 

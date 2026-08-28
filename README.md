@@ -32,7 +32,7 @@ Trained on a 4x5 grid, it stays ahead on grids up to 8x10, four times the nodes
 and 4.6 times the edges, with no retraining and no decay in the margin. That
 transfer is the payoff of keeping the policy permutation-equivariant: 113 of 117
 tensors copy across a change of topology, and the four that do not
-are`edge_index` buffers and`log_std`.
+are `edge_index` buffers and `log_std`.
 
 Getting there took ten times the training budget I expected, and two plausible
 fixes that both made things worse. Those are reported alongside the result.
@@ -59,7 +59,7 @@ python -m dgno.visualize --policy backpressure --steps 150
 ## 2. Results
 
 ### 2.1 Against the baselines
-10 eval episodes on shared seeds.`served` is delivered over offered demand, `peak_q` is the episode mean of the worst node's backlog,`churn` is how much the action moves per step.
+10 eval episodes on shared seeds. `served` is delivered over offered demand, `peak_q` is the episode mean of the worst node's backlog, `churn` is how much the action moves per step.
 
 ![policy comparison](docs/policy-comparison.png)
 ![learning curve](docs/learning-curve.png)
@@ -74,14 +74,14 @@ past.*
 
 Full detail in [notes/METHODS.md](notes/METHODS.md#21-against-the-baselines).
 ### 2.2 Transfer to other grid sizes
-Trained on 4x5, evaluated with no retraining.`sp` is shortest-path,`bp` is backpressure.
+Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is backpressure.
 
 ![transfer scaling](docs/transfer-scaling.png)
 
 Full detail in [notes/METHODS.md](notes/METHODS.md#22-transfer-to-other-grid-sizes).
 ## 3. Reproducibility
 
-The agent behind both tables is committed at`checkpoints/ppo-gnn-4m.zip` (1.1 MB),
+The agent behind both tables is committed at `checkpoints/ppo-gnn-4m.zip` (1.1 MB),
 so you don't have to spend the four hours retraining it:
 
 ```bash
@@ -93,22 +93,22 @@ stops beating backpressure on throughput or peak backlog, or if it drifts back
 towards a static policy. It runs in CI, so the numbers above are re-derived on
 every push rather than being a table I typed once.
 
-The ablation agents are committed too, under`checkpoints/ablations/`. Re-derive
+The ablation agents are committed too, under `checkpoints/ablations/`. Re-derive
 that whole table in about 15 seconds:
 
 ```bash
 python -m dgno.ablations
 ```
 
-It scores every agent under the same reward and seeds, so`return` is comparable
-across rows there -- unlike the per-run files in`docs/`, each of which uses the
+It scores every agent under the same reward and seeds, so `return` is comparable
+across rows there -- unlike the per-run files in `docs/`, each of which uses the
 reward its own agent was trained on.
 
-Retraining from scratch, if you want to:`python -m dgno.train --timesteps 4000000`,
+Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
 about four hours on 8 CPU envs.
 
 ## 4. Method
-The congestion term is written as potential-based shaping,`gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant.
+The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant.
 
 ![what each reward term contributes over an episode](docs/reward-anatomy.png)
 
