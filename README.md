@@ -2,8 +2,7 @@
 
 **Can a GNN policy learn routing control that beats backpressure, and does it transfer to graphs it never saw?**
 
-[![ci](https://img.shields.io/badge/ci-passing-brightgreen.svg)](.github/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-13%20passing-brightgreen.svg)](tests/)
+[![ci](https://github.com/aghasalim/dynamic-graph-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/aghasalim/dynamic-graph-optimizer/actions/workflows/ci.yml)
 [![licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
 ![the trained agent mid-episode](docs/network-state.png)
