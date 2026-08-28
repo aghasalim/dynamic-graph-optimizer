@@ -61,6 +61,13 @@ python -m dgno.visualize --policy backpressure --steps 150
 
 ![policy comparison](docs/policy-comparison.png)
 ![learning curve](docs/learning-curve.png)
+
+![the same run replayed in step order](docs/learning-curve.gif)
+
+*The same 4M run replayed in step order, with the axes and the dashed first
+reading at 4k steps held fixed, so you can watch the curve fall under that line
+before it climbs back past it.*
+
 ![every checkpoint on the same seeds](docs/ablations.png)
 
 Full detail in [notes/METHODS.md](notes/METHODS.md#21-against-the-baselines).
