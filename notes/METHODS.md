@@ -10,12 +10,15 @@ Long form detail moved out of the README.
 `peak_q` is the episode mean of the worst node's backlog,`churn` is how much the
 action moves per step.
 
-| policy | served | dropped | peak_q | churn |
-|---|---|---|---|---|
-| shortest-path | 0.869 | 0.106 | 0.766 | 0.0000 |
-| backpressure | 0.901 | 0.075 | 0.672 | 0.1994 |
-| PPO + GNN, 400k steps | 0.891 | 0.083 | 0.746 | 0.0002 |
-| PPO + GNN, 4M steps | **0.929** | **0.047** | **0.602** | 0.0155 |
+| policy | served | dropped | peak_q | mean_q | churn |
+|---|---|---|---|---|---|
+| shortest-path | 0.869 | 0.106 | 0.766 | 0.283 | 0.0000 |
+| backpressure | 0.901 | 0.075 | 0.672 | **0.262** | 0.1994 |
+| PPO + GNN, 400k steps | 0.891 | 0.083 | 0.746 | 0.285 | 0.0002 |
+| PPO + GNN, 4M steps | **0.929** | **0.047** | **0.602** | 0.268 | 0.0155 |
+
+`mean_q` is the episode mean backlog over all nodes, so it is the one column
+backpressure keeps.
 
 ![policy comparison](../docs/policy-comparison.png)
 
@@ -25,12 +28,17 @@ offsets flip sign constantly, red and blue in the same picture, and that is the
 churn. The agent pushes consistently in one direction and keeps every node in
 roughly the same band.
 
-At 4M steps it beats backpressure on everything, and does it with roughly an
-order of magnitude less control effort. That last part is the bit I like:
-backpressure buys its throughput by thrashing the routing weights every tick, and
-the agent gets a better result while barely moving them. The exact churn ratio
-moves around with the episode sample (about 13x over 10 episodes, 9x over 5), so
-treat it as a magnitude rather than a figure.
+At 4M steps it beats backpressure on served, dropped and peak backlog, and does
+it with roughly an order of magnitude less control effort. That last part is the
+bit I like: backpressure buys its throughput by thrashing the routing weights
+every tick, and the agent gets a better result while barely moving them. The
+exact churn ratio moves around with the episode sample (about 13x over 10
+episodes, 9x over 5), so treat it as a magnitude rather than a figure.
+
+It does not win every column. Mean backlog over all nodes is 0.268 against
+backpressure's 0.262, so it loses that one by 0.006. Peak backlog is the column
+it wins by the most, 0.602 against 0.672. Read together, the agent is holding the
+worst node down and paying for it with slightly more queue on the rest.
 
 Getting there took a lot more training than I expected. At 400k steps the agent
 is basically static (churn 0.0002) and loses to backpressure. Two ablations at

@@ -23,14 +23,16 @@ a quadratic Lyapunov function reproduces it in closed form. This work asks wheth
 a graph neural network policy trained with PPO can beat it, and whether what it
 learns is a property of the graph it trained on.
 
-At 4M steps the agent beats backpressure on every metric, 0.929 served against
-0.901, 0.047 dropped against 0.075, 0.602 mean peak backlog against 0.672, while
-moving the routing weights roughly an order of magnitude less. Trained on a 4x5
-grid, it stays ahead on grids up to 8x10, four times the nodes and 4.6 times the
-edges, with no retraining and no decay in the margin. That transfer is the payoff
-of keeping the policy permutation-equivariant: 113 of 117 tensors copy across a
-change of topology, and the four that do not are`edge_index` buffers and
-`log_std`.
+At 4M steps the agent beats backpressure on four of the five metrics I score,
+0.929 served against 0.901, 0.047 dropped against 0.075, 0.602 mean peak backlog
+against 0.672, while moving the routing weights roughly an order of magnitude
+less. It loses the fifth: mean backlog over all nodes is 0.268 against 0.262. It
+holds the worst node down and carries a little more queue everywhere else.
+Trained on a 4x5 grid, it stays ahead on grids up to 8x10, four times the nodes
+and 4.6 times the edges, with no retraining and no decay in the margin. That
+transfer is the payoff of keeping the policy permutation-equivariant: 113 of 117
+tensors copy across a change of topology, and the four that do not
+are`edge_index` buffers and`log_std`.
 
 Getting there took ten times the training budget I expected, and two plausible
 fixes that both made things worse. Those are reported alongside the result.
