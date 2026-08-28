@@ -64,9 +64,9 @@ python -m dgno.visualize --policy backpressure --steps 150
 
 ![the same run replayed in step order](docs/learning-curve.gif)
 
-*The same 4M run replayed in step order, with the axes and the dashed first
-reading at 4k steps held fixed, so you can watch the curve fall under that line
-before it climbs back past it.*
+*The 4M run replayed in step order. The dashed line is its own first reading
+at 4k steps, and the curve spends a long stretch below it before climbing back
+past.*
 
 ![every checkpoint on the same seeds](docs/ablations.png)
 
