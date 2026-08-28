@@ -17,7 +17,7 @@ action moves per step.
 | PPO + GNN, 400k steps | 0.891 | 0.083 | 0.746 | 0.0002 |
 | PPO + GNN, 4M steps | **0.929** | **0.047** | **0.602** | 0.0155 |
 
-![policy comparison](docs/policy-comparison.png)
+![policy comparison](../docs/policy-comparison.png)
 
 Same episode, same seed, same timestep. Shortest-path piles backlog onto a few
 nodes and leaves most edges idle. Backpressure spreads it better, but its routing
@@ -50,7 +50,7 @@ to the same behaviour. Neither was the problem, it just
 needed roughly 10x the steps. An entropy bonus of 0.01 at 4M also hurt (0.902
 served, 0.682 peak_q), so keeping exploration alive isn't what did it either.
 
-![learning curve](docs/learning-curve.png)
+![learning curve](../docs/learning-curve.png)
 
 I misread this curve at first and want to leave the mistake in. I sampled eight
 evenly spaced points from the log and read them as flat, so I concluded that 4M
@@ -71,7 +71,7 @@ The difference shows up directly in the actions. The 400k policy only spans
 [-0.278, 0.122] of its available [-1, 1] and moves 0.057 when I slam every queue
 to 95% full. The 4M policy uses the full range and moves 0.142.
 
-![every checkpoint on the same seeds](docs/ablations.png)
+![every checkpoint on the same seeds](../docs/ablations.png)
 
 Every 400k variant sits on the wrong side of the backpressure line, including both
 fixes I expected to work. Raising the action-head gain made it worse; removing the
@@ -104,7 +104,7 @@ topology and copying the weights transfers the control rule intact. 113 of 117
 tensors copy; the four that don't are the three`edge_index` buffers and
 `log_std`, which is unused in deterministic evaluation.
 
-![transfer scaling](docs/transfer-scaling.png)
+![transfer scaling](../docs/transfer-scaling.png)
 
 ```bash
 python -m dgno.transfer --grids 3x4,4x5,5x6,6x8,8x10
@@ -117,7 +117,7 @@ table in`docs/transfer.txt`.
 ## 4. Method
 
 
-![what each reward term contributes over an episode](docs/reward-anatomy.png)
+![what each reward term contributes over an episode](../docs/reward-anatomy.png)
 
 The congestion term is written as potential-based shaping,`gamma*Phi(s') - Phi(s)`,
 which is what makes it policy-invariant. The same property is why it contributes
