@@ -170,4 +170,4 @@ would normally put a dense `Linear(latent, num_edges)` on the policy output,
 which throws away the permutation symmetry the GNN is there for, so I replace it
 with a weight-shared per-edge head.
 
-Longer write-up of the reward and the GNN choices: [docs/design-notes.md](docs/design-notes.md).
+Longer write-up of the reward and the GNN choices: [docs/design-notes.md](../docs/design-notes.md).
