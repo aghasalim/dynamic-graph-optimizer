@@ -60,6 +60,11 @@ python -m dgno.visualize --policy backpressure --steps 150
 ### 2.1 Against the baselines
 10 eval episodes on shared seeds. `served` is delivered over offered demand, `peak_q` is the episode mean of the worst node's backlog, `churn` is how much the action moves per step.
 
+The 4M agent serves 0.929 of offered demand against backpressure's 0.901,
+drops 0.047 against 0.075, and holds the worst node at 0.602 against 0.672. Its churn is 0.0155 against backpressure's 0.1994, so it gets that while
+moving the routing weights about an order of magnitude less. Mean backlog over
+all nodes is the column it loses, 0.268 against 0.262.
+
 ![policy comparison](docs/policy-comparison.png)
 ![learning curve](docs/learning-curve.png)
 
@@ -71,9 +76,23 @@ past.*
 
 ![every checkpoint on the same seeds](docs/ablations.png)
 
+The two fixes I expected to work both failed. Raising the action head gain to
+1.0 at 400k made it worse (0.877 served, 0.759 peak backlog against the 400k
+baseline's 0.891 and 0.746), removing the churn penalty changed nothing to three decimals,
+and an entropy bonus at 4M gave 0.902 served against the plain run's 0.929. What
+fixed it was ten times the training budget.
+
 Full detail in [notes/METHODS.md](notes/METHODS.md#21-against-the-baselines).
 ### 2.2 Transfer to other grid sizes
 Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is backpressure.
+
+On 8x10, four times the nodes and 4.6 times the edges of the training grid, it
+still serves 0.898 against backpressure's 0.871 and keeps peak backlog at 0.706
+against 0.751. The margin does not decay with size, though it is not flat
+either: the widest served gap is +0.028 on the 4x5 grid it trained on, the
+narrowest is +0.009 on 5x6, and it comes back to +0.027 on 8x10. Re-hosting the
+policy on a new grid copies 113 of its 117 tensors, and the four that stay
+behind are the `edge_index` buffers and `log_std`.
 
 ![transfer scaling](docs/transfer-scaling.png)
 
@@ -93,7 +112,7 @@ towards a static policy. It runs in CI, so the numbers above are re-derived on
 every push rather than being a table I typed once.
 
 The ablation agents are committed too, under `checkpoints/ablations/`. Re-derive
-that whole table in about 15 seconds:
+every ablation number above in about 15 seconds:
 
 ```bash
 python -m dgno.ablations
@@ -108,6 +127,14 @@ about four hours on 8 CPU envs.
 
 ## 4. Method
 The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant.
+
+Policy-invariance has a price, and it shows up in the figure below. Because the
+term telescopes, over a 300 step episode throughput accumulates 273.6 of return
+while the shaping term sums to 0.69, a factor of about 400. It speeds up credit
+assignment and applies almost no pressure of its own to flatten backlog. Routing
+is a softmax over each node's out-edges, and at zero action that is plain
+shortest-path, so the agent is correcting a working default rather than learning
+to route from nothing.
 
 ![what each reward term contributes over an episode](docs/reward-anatomy.png)
 
