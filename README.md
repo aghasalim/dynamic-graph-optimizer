@@ -146,9 +146,9 @@ what make an independent simulator possible. Reproducing numpy's generator in C
 would test numpy rather than the queueing model, so the draws are recorded and
 replayed instead. CI regenerates the fixture from the
 checkpoints and requires it back unchanged, so it cannot drift from the code
-that produced it: byte identical everywhere except the seven rows that are a
-torch forward pass, which get a 1e-6 relative tolerance because torch does not
-promise the same last bits on a different platform.
+that produced it: the recorded draws byte identical, and the per episode metrics
+to a relative tolerance, because 300 steps of accumulated float arithmetic do
+not land on the same last bits on a different platform.
 
 | implementation | what it recomputes | from | measured agreement |
 | --- | --- | --- | --- |

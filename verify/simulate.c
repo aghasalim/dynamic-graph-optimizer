@@ -54,6 +54,10 @@ static const double OBS_CLIP = 10.0;
 
 static const double BACKPRESSURE_GAIN = 4.0;
 
+/* -std=c99 does not declare M_PI, and this has to be the same double numpy
+ * uses, which is the nearest double to pi. */
+static const double PI = 3.14159265358979323846;
+
 /* ---------------------------------------------------------------- topology */
 
 typedef struct {
@@ -295,7 +299,7 @@ static Metrics run_episode(const Net *net, int episode, int policy)
 
         /* demand: a per source rush hour cycle plus noise */
         for (s = 0; s < net->num_sources; s++) {
-            double phase = 2.0 * M_PI * (double)t / (double)DEMAND_PERIOD
+            double phase = 2.0 * PI * (double)t / (double)DEMAND_PERIOD
                            + g_phase[episode][s];
             double seasonal = 1.0 + DEMAND_AMPLITUDE * sin(phase);
             double noise = 1.0 + DEMAND_NOISE * g_z[episode][t][s];

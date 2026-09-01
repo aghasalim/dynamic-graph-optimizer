@@ -42,12 +42,13 @@ SEED = 12345
 #: C implementation can replay it too.
 ANATOMY_EPISODE = 10
 ANATOMY_SEED = 0
-#: --check requires the fixture back byte identical, with one exception: the
-#: seven PPO rows of episode-metrics.csv are the output of a torch forward pass,
-#: and torch does not promise the same last bits on a different platform. Those
-#: rows get a relative tolerance instead. Everything else, the draws included, is
-#: numpy on a fixed seed and has to come back exactly.
-PPO_ROW_TOLERANCE = 1e-6
+#: --check requires the recorded draws back byte identical: they are numpy on a
+#: fixed seed and PCG64 is the same stream everywhere. The episode metrics are
+#: not held to that. They are 300 steps of accumulated float arithmetic, through
+#: torch for the seven PPO rows and through numpy reductions for the other two,
+#: and neither promises the same last bits on a different platform. They get a
+#: relative tolerance, and --check prints the worst it measured.
+METRIC_TOLERANCE = 1e-6
 #: the largest grid in docs/transfer.txt, where the tensor census is taken
 TRANSFER_ROWS, TRANSFER_COLS = 8, 10
 OUT = Path(__file__).resolve().parent / "data"
@@ -96,8 +97,8 @@ def g17(x: float) -> str:
 def emit(name: str, text: str, check: bool) -> None:
     """Write the file, or under --check compare it against what is committed.
 
-    Exact everywhere except the PPO rows of episode-metrics.csv, which are a
-    torch forward pass and only have to agree to ``PPO_ROW_TOLERANCE``.
+    Exact everywhere except episode-metrics.csv, whose accumulated floats only
+    have to agree to ``METRIC_TOLERANCE``.
     """
     path = OUT / name
     if not check:
@@ -122,15 +123,13 @@ def emit(name: str, text: str, check: bool) -> None:
         fa, fb = a.split(","), b.split(",")
         if fa[:2] != fb[:2]:
             _fail(f"{name}: row for {fb[:2]} does not line up with {fa[:2]}")
-        if fa[0] in ("shortest-path", "backpressure") and a != b:
-            _fail(f"{name}: the numpy only {fa[0]} rows are not byte identical")
         for x, y in zip(fa[2:], fb[2:], strict=True):
             u, v = float(x), float(y)
             worst = max(worst, abs(u - v) / max(abs(u), 1.0))
-    if worst > PPO_ROW_TOLERANCE:
+    if worst > METRIC_TOLERANCE:
         _fail(f"{name}: worst relative disagreement {worst:.1e}, tolerance "
-              f"{PPO_ROW_TOLERANCE:.0e}")
-    print(f"  ok   {name:<24} PPO rows within {worst:.1e}, the rest byte identical")
+              f"{METRIC_TOLERANCE:.0e}")
+    print(f"  ok   {name:<24} every metric within {worst:.1e}")
 
 
 def _fail(message: str) -> None:
