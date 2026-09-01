@@ -151,12 +151,13 @@ metrics do not: every simulator step has a min and a clip in it, so a difference
 in the last bits of a sum can flip a branch and grow over 300 steps, and
 regenerating on the runner rather than on the laptop that wrote the fixture
 moves a single episode by up to 7.4e-04 relative. So those are held to a
-tolerance an order of magnitude above the measured drift. It is not tighter than the printed
-table on purpose: the one time I did require the regenerated means to round
-identically, the runner put the `ppo 4M entropy` return at 260.76 against the
-260.77 published here, so that column's second decimal is not portable.
-`docs/ablations.txt` is instead pinned to the committed fixture exactly, by the
-four implementations below, which is where that comparison belongs.
+tolerance an order of magnitude above the measured drift. It is not tighter than
+the printed table on purpose: the one time I did require the regenerated means
+to round identically, the runner put the `ppo 4M entropy` return at 260.76
+against the 260.77 published here, so that column's second decimal is not
+portable. `docs/ablations.txt` is instead pinned to the committed fixture
+exactly, by the four implementations below, which is where that comparison
+belongs.
 
 | implementation | what it recomputes | from | measured agreement |
 | --- | --- | --- | --- |
@@ -206,8 +207,12 @@ narrower at +0.008. That is corrected above.
 **The harness is itself checked.** A check that cannot fail is not evidence, so
 CI nudges `docs/ablations.txt` by one digit, requires rejection, restores it,
 then adds 1e-6 to a single one of the 13,200 recorded demand draws, requires
-rejection again, restores, and requires a clean pass. Each implementation catches
-what it is responsible for and nothing more:
+rejection again, restores, and requires a clean pass. On the last green run that
+came out as 6 passed, then 2 passed 4 failed, then 5 passed 1 failed, then 6
+passed again. The second of those is the interesting one: only the C notices a
+draw file that moved, and the disagreement it reports goes from 1.3e-15 to
+1.3e-05. Each implementation catches what it is responsible for and nothing
+more:
 
 | what I corrupted | caught by |
 | --- | --- |
