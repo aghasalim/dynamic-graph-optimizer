@@ -146,9 +146,13 @@ what make an independent simulator possible. Reproducing numpy's generator in C
 would test numpy rather than the queueing model, so the draws are recorded and
 replayed instead. CI regenerates the fixture from the
 checkpoints and requires it back unchanged, so it cannot drift from the code
-that produced it: the recorded draws byte identical, and the per episode metrics
-to a relative tolerance, because 300 steps of accumulated float arithmetic do
-not land on the same last bits on a different platform.
+that produced it. The draws have to come back byte identical. The per episode
+metrics do not: every simulator step has a min and a clip in it, so a difference
+in the last bits of a sum can flip a branch and grow over 300 steps, and
+regenerating on the runner rather than on the laptop that wrote the fixture
+moves a single episode by up to 7.4e-04 relative. So those are held to a
+tolerance an order of magnitude above the measured drift, and their means are
+then required to round to the same `docs/ablations.txt`.
 
 | implementation | what it recomputes | from | measured agreement |
 | --- | --- | --- | --- |

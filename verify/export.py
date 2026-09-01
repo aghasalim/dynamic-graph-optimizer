@@ -44,11 +44,16 @@ ANATOMY_EPISODE = 10
 ANATOMY_SEED = 0
 #: --check requires the recorded draws back byte identical: they are numpy on a
 #: fixed seed and PCG64 is the same stream everywhere. The episode metrics are
-#: not held to that. They are 300 steps of accumulated float arithmetic, through
-#: torch for the seven PPO rows and through numpy reductions for the other two,
-#: and neither promises the same last bits on a different platform. They get a
-#: relative tolerance, and --check prints the worst it measured.
-METRIC_TOLERANCE = 1e-6
+#: not held to that. Every step has a min and a clip in it, so a difference in
+#: the last bits of an exp or a sum can flip a branch and then grow over 300
+#: steps. Regenerating on the CI runner rather than the laptop the fixture was
+#: written on moves a single episode by at most 7.4e-04 relative, measured. The
+#: tolerance is set an order of magnitude above that, and the means are then
+#: required to round to the same printed table, which is the thing anything
+#: downstream actually reads.
+METRIC_TOLERANCE = 5e-3
+#: the precision compare_policies() prints each column with, dgno/baselines.py
+METRIC_DIGITS = (2, 3, 3, 3, 3, 4)
 #: the largest grid in docs/transfer.txt, where the tensor census is taken
 TRANSFER_ROWS, TRANSFER_COLS = 8, 10
 OUT = Path(__file__).resolve().parent / "data"
@@ -106,12 +111,15 @@ def emit(name: str, text: str, check: bool) -> None:
         return
 
     committed = path.read_text()
-    if committed == text:
-        print(f"  ok   {name:<24} byte identical")
-        return
     if name != "episode-metrics.csv":
+        if committed == text:
+            print(f"  ok   {name:<24} byte identical")
+            return
         _fail(f"{name} differs from the committed fixture")
 
+    # The metrics are compared numerically even when the bytes match, so the
+    # check against the published table runs on every platform, not only the
+    # ones where the export happens to be bit reproducible.
     old = committed.strip().split("\n")
     new = text.strip().split("\n")
     if len(old) != len(new):
@@ -119,6 +127,8 @@ def emit(name: str, text: str, check: bool) -> None:
     if old[0] != new[0]:
         _fail(f"{name}: the header changed")
     worst = 0.0
+    totals: dict[str, list[float]] = {}
+    counts: dict[str, int] = {}
     for a, b in zip(old[1:], new[1:], strict=True):
         fa, fb = a.split(","), b.split(",")
         if fa[:2] != fb[:2]:
@@ -126,10 +136,45 @@ def emit(name: str, text: str, check: bool) -> None:
         for x, y in zip(fa[2:], fb[2:], strict=True):
             u, v = float(x), float(y)
             worst = max(worst, abs(u - v) / max(abs(u), 1.0))
+        policy = fb[0]
+        running = totals.setdefault(policy, [0.0] * len(METRIC_DIGITS))
+        for i, value in enumerate(fb[2:]):
+            running[i] += float(value)
+        counts[policy] = counts.get(policy, 0) + 1
     if worst > METRIC_TOLERANCE:
         _fail(f"{name}: worst relative disagreement {worst:.1e}, tolerance "
               f"{METRIC_TOLERANCE:.0e}")
-    print(f"  ok   {name:<24} every metric within {worst:.1e}")
+
+    # The published table is the means, so require those to round the same way
+    # even though the episodes behind them are allowed to move.
+    published = _published_table()
+    for policy, running in totals.items():
+        if policy not in published:
+            _fail(f"docs/ablations.txt has no row for {policy}")
+        for i, digits in enumerate(METRIC_DIGITS):
+            got = f"{running[i] / counts[policy]:.{digits}f}"
+            want = f"{published[policy][i]:.{digits}f}"
+            if got != want:
+                _fail(f"{policy}: regenerated column {i} is {got}, "
+                      f"docs/ablations.txt says {want}")
+    where = "byte identical" if committed == text else f"within {worst:.1e}"
+    print(f"  ok   {name:<24} every metric {where}, and all "
+          f"{len(totals)} rows still round to docs/ablations.txt")
+
+
+def _published_table() -> dict[str, list[float]]:
+    """docs/ablations.txt as label -> its six printed numbers."""
+    rows: dict[str, list[float]] = {}
+    for line in (ROOT / "docs" / "ablations.txt").read_text().split("\n"):
+        fields = line.split()
+        if len(fields) < 7:
+            continue
+        try:
+            values = [float(v) for v in fields[-6:]]
+        except ValueError:
+            continue
+        rows[" ".join(fields[:-6])] = values
+    return rows
 
 
 def _fail(message: str) -> None:
