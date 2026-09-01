@@ -34,7 +34,7 @@ jobs:
 
       - name: The verify/ fixture still comes out of the Python unchanged
         run: |
-          python verify/export.py
+          python verify/export.py --check
           git diff --exit-code -- verify/data
 
   verify:

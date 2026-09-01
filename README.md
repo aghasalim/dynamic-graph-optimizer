@@ -144,8 +144,11 @@ written down before: the per episode metrics behind every published mean, at
 full precision, and the random draws each episode was built from. The draws are
 what make an independent simulator possible. Reproducing numpy's generator in C
 would test numpy rather than the queueing model, so the draws are recorded and
-replayed instead. CI regenerates the fixture from the checkpoints and requires it
-back byte identical, so it cannot drift from the code that produced it.
+replayed instead. CI regenerates the fixture from the
+checkpoints and requires it back unchanged, so it cannot drift from the code
+that produced it: byte identical everywhere except the seven rows that are a
+torch forward pass, which get a 1e-6 relative tolerance because torch does not
+promise the same last bits on a different platform.
 
 | implementation | what it recomputes | from | measured agreement |
 | --- | --- | --- | --- |

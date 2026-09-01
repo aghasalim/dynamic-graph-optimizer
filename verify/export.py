@@ -17,11 +17,13 @@ generator is not this repository's code, so reproducing its bit stream in C
 would test numpy rather than the queueing dynamics.  Recording the draws and
 replaying them tests the dynamics, which is the part that could be wrong.
 
-Run: python verify/export.py
+Run: python verify/export.py           rewrite the fixture
+     python verify/export.py --check   regenerate it and compare, changing nothing
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -40,6 +42,12 @@ SEED = 12345
 #: C implementation can replay it too.
 ANATOMY_EPISODE = 10
 ANATOMY_SEED = 0
+#: --check requires the fixture back byte identical, with one exception: the
+#: seven PPO rows of episode-metrics.csv are the output of a torch forward pass,
+#: and torch does not promise the same last bits on a different platform. Those
+#: rows get a relative tolerance instead. Everything else, the draws included, is
+#: numpy on a fixed seed and has to come back exactly.
+PPO_ROW_TOLERANCE = 1e-6
 #: the largest grid in docs/transfer.txt, where the tensor census is taken
 TRANSFER_ROWS, TRANSFER_COLS = 8, 10
 OUT = Path(__file__).resolve().parent / "data"
@@ -85,6 +93,51 @@ def g17(x: float) -> str:
     return repr(float(x))
 
 
+def emit(name: str, text: str, check: bool) -> None:
+    """Write the file, or under --check compare it against what is committed.
+
+    Exact everywhere except the PPO rows of episode-metrics.csv, which are a
+    torch forward pass and only have to agree to ``PPO_ROW_TOLERANCE``.
+    """
+    path = OUT / name
+    if not check:
+        path.write_text(text)
+        return
+
+    committed = path.read_text()
+    if committed == text:
+        print(f"  ok   {name:<24} byte identical")
+        return
+    if name != "episode-metrics.csv":
+        _fail(f"{name} differs from the committed fixture")
+
+    old = committed.strip().split("\n")
+    new = text.strip().split("\n")
+    if len(old) != len(new):
+        _fail(f"{name}: {len(new)} rows regenerated against {len(old)} committed")
+    if old[0] != new[0]:
+        _fail(f"{name}: the header changed")
+    worst = 0.0
+    for a, b in zip(old[1:], new[1:], strict=True):
+        fa, fb = a.split(","), b.split(",")
+        if fa[:2] != fb[:2]:
+            _fail(f"{name}: row for {fb[:2]} does not line up with {fa[:2]}")
+        if fa[0] in ("shortest-path", "backpressure") and a != b:
+            _fail(f"{name}: the numpy only {fa[0]} rows are not byte identical")
+        for x, y in zip(fa[2:], fb[2:], strict=True):
+            u, v = float(x), float(y)
+            worst = max(worst, abs(u - v) / max(abs(u), 1.0))
+    if worst > PPO_ROW_TOLERANCE:
+        _fail(f"{name}: worst relative disagreement {worst:.1e}, tolerance "
+              f"{PPO_ROW_TOLERANCE:.0e}")
+    print(f"  ok   {name:<24} PPO rows within {worst:.1e}, the rest byte identical")
+
+
+def _fail(message: str) -> None:
+    print(f"  FAIL {message}")
+    raise SystemExit(1)
+
+
 def transfer_census() -> tuple[list[str], list[str]]:
     """Re-host the 4M policy on the largest transfer grid and report the split.
 
@@ -112,7 +165,14 @@ def transfer_census() -> tuple[list[str], list[str]]:
 
 
 def main() -> None:
-    """Write every fixture file verify/ reads."""
+    """Write every fixture file verify/ reads, or check the committed ones."""
+    parser = argparse.ArgumentParser(description="write or check the verify fixture")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="regenerate and compare against the committed files, writing nothing",
+    )
+    check = parser.parse_args().check
     OUT.mkdir(exist_ok=True)
     env = DynamicRoutingEnv(seed=0)
     policies = build_policy_table(env)
@@ -231,23 +291,26 @@ def main() -> None:
     # The README says 113 of 117 tensors copy across a change of topology and
     # names the four that do not. Nothing had recorded either number.
     census = transfer_census()
-    (OUT / "transfer-tensors.csv").write_text(
+    emit(
+        "transfer-tensors.csv",
         "kind,count,names\n"
         f"copied,{len(census[0])},\n"
-        f"skipped,{len(census[1])}," + " ".join(census[1]) + "\n"
+        f"skipped,{len(census[1])}," + " ".join(census[1]) + "\n",
+        check,
     )
 
-    (OUT / "reward-anatomy.csv").write_text(
-        "term,cumulative\n"
-        + "".join(f"{k},{g17(v)}\n" for k, v in terms.items())
+    emit(
+        "reward-anatomy.csv",
+        "term,cumulative\n" + "".join(f"{k},{g17(v)}\n" for k, v in terms.items()),
+        check,
     )
 
-    (OUT / "episode-metrics.csv").write_text("\n".join(metrics_rows) + "\n")
-    (OUT / "draws-capacity.csv").write_text("\n".join(capacity_rows) + "\n")
-    (OUT / "draws-phase.csv").write_text("\n".join(phase_rows) + "\n")
-    (OUT / "draws-step.csv").write_text("\n".join(step_rows) + "\n")
+    emit("episode-metrics.csv", "\n".join(metrics_rows) + "\n", check)
+    emit("draws-capacity.csv", "\n".join(capacity_rows) + "\n", check)
+    emit("draws-phase.csv", "\n".join(phase_rows) + "\n", check)
+    emit("draws-step.csv", "\n".join(step_rows) + "\n", check)
     print(
-        f"wrote {len(metrics_rows) - 1} episode rows, "
+        f"{'checked' if check else 'wrote'} {len(metrics_rows) - 1} episode rows, "
         f"{len(step_rows) - 1} step rows, "
         f"{len(census[0])} copied and {len(census[1])} skipped tensors"
     )
