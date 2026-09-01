@@ -90,7 +90,7 @@ On 8x10, four times the nodes and 4.6 times the edges of the training grid, it
 still serves 0.898 against backpressure's 0.871 and keeps peak backlog at 0.706
 against 0.751. The margin does not decay with size, though it is not flat
 either: the widest served gap is +0.028 on the 4x5 grid it trained on, the
-narrowest is +0.009 on 5x6, and it comes back to +0.027 on 8x10. Re-hosting the
+narrowest is +0.008 on 3x4, and it comes back to +0.027 on 8x10. Re-hosting the
 policy on a new grid copies 113 of its 117 tensors, and the four that stay
 behind are the `edge_index` buffers and `log_std`.
 
@@ -125,7 +125,96 @@ reward its own agent was trained on.
 Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
 about four hours on 8 CPU envs.
 
-## 4. Method
+## 4. Everything here is computed twice
+
+Every number above came out of one implementation. `dgno/simulator.py` runs the
+queueing dynamics, `dgno/baselines.py` averages ten episodes, and the table, the
+figures and the prose all read that same output. The tests in `tests/` check
+that code against itself: that shaping telescopes, that batching does not change
+an answer. None of them could catch the dynamics being wrong, because there was
+only ever one copy of the dynamics to disagree with.
+
+So `verify/` recomputes the published numbers in six other languages and CI
+fails if any two disagree. A mistake would have to be made identically in all of
+them to survive.
+
+The fixture they read is `verify/data/`, written by
+[`verify/export.py`](verify/export.py). It holds two things that were never
+written down before: the per episode metrics behind every published mean, at
+full precision, and the random draws each episode was built from. The draws are
+what make an independent simulator possible. Reproducing numpy's generator in C
+would test numpy rather than the queueing model, so the draws are recorded and
+replayed instead. CI regenerates the fixture from the checkpoints and requires it
+back byte identical, so it cannot drift from the code that produced it.
+
+| implementation | what it recomputes | from | measured agreement |
+| --- | --- | --- | --- |
+| [`verify/summary.sql`](verify/summary.sql) | all nine rows of `docs/ablations.txt`, in SQLite | the per episode metrics | 9 of 9 rows identical as text at the printed precision |
+| [`verify/simulate.c`](verify/simulate.c) | the simulator itself: grid, BFS prior, segmented softmax, spillback, reward, and both hand written policies | the recorded draws, no numpy | worst relative disagreement 2.4e-15 over 20 episodes; both published rows reproduced |
+| [`verify/gocheck`](verify/gocheck) | structure of all 11 published data files, the nine rows again, and the identities between the eight tables | everything under `docs/` and `verify/data/` | 9 of 9 rows, 16 of 16 baseline rows agreeing across eight tables, 5 of 5 transfer rows |
+| [`verify/verify.R`](verify/verify.R) | the nine rows a third time, plus a paired t interval on every margin | the per episode metrics | 9 of 9 rows exact; intervals below |
+| [`verify/permute`](verify/permute) | the exact randomisation test the ten episodes allow, and a 200,000 draw paired bootstrap | the per episode metrics | all 1024 sign assignments enumerated, not sampled |
+| [`verify/readme_audit.js`](verify/readme_audit.js) | every number quoted in this README, rebuilt from its source file | `docs/`, `verify/data/`, the checkpoint | 25 of 25 claims match |
+
+Run them all with [`./verify/verify.sh`](verify/verify.sh). Each is skipped with a
+message if its toolchain is missing, so a partial install still runs the rest.
+
+**The C reproduces the dynamics, not just the arithmetic.** It rebuilds the
+network and both classical policies from scratch and replays the same 20
+episodes from the recorded draws. Worst relative disagreement with the Python is
+2.4e-15, and the two baseline rows of `docs/ablations.txt` come out identical at
+the precision they were printed. It also lands on the reward anatomy figure:
+throughput 273.561256 against 273.561256, shaping term 0.694454 against
+0.694454, and it puts the ratio section 5 calls "about 400" at 394.
+
+**The margins now have intervals, which they did not before.** Ten paired
+episodes is small enough that the exact randomisation test is not an
+approximation: under the null there are only 2^10 = 1024 sign assignments, so
+the Rust enumerates all of them. Against backpressure the agent's served margin
+is +0.0278, exact p 3.91e-3 (4 of 1024), 95% bootstrap interval [+0.0196,
++0.0343]; dropped -0.0275 at p 1.95e-3; peak backlog -0.0704 at p 5.86e-3; churn
+-0.1839 at p 1.95e-3. R reaches the same place independently with a paired t
+test: served p 6.64e-05, interval [+0.0187, +0.0368].
+
+**One claim came out weaker than I wrote it.** The metric the section above says
+the agent loses, mean backlog, is +0.0060 with exact p 1.68e-1, 172 of the 1024
+assignments at least as extreme, and a bootstrap interval [-0.0013, +0.0134] that
+covers zero. It is not separable from noise in ten episodes. The four wins are.
+The same test says `ppo 400k (baseline)` (p 5.27e-2), `ppo 400k no churn` (p
+6.45e-2) and `ppo 4M entropy` (p 6.56e-1) do not separate from backpressure on
+served either, which is a sharper statement than the ablation table alone makes.
+
+**The prose is checked against the tables.** The tables are regenerated by code;
+the paragraphs around them are typed by hand and repeat about twenty five of
+those numbers. Nothing connected the two. `verify/readme_audit.js` rebuilds each
+quoted number from its source file and requires the sentence containing it to be
+present. It found one wrong number on the first run: this README said the
+narrowest served margin over backpressure was +0.009 on 5x6, when 3x4 is
+narrower at +0.008. That is corrected above.
+
+**The harness is itself checked.** A check that cannot fail is not evidence, so
+CI nudges `docs/ablations.txt` by one digit, requires rejection, restores it,
+then adds 1e-6 to a single one of the 13,200 recorded demand draws, requires
+rejection again, restores, and requires a clean pass. Each implementation catches
+what it is responsible for and nothing more:
+
+| what I corrupted | caught by |
+| --- | --- |
+| a published backpressure mean in `docs/ablations.txt` | SQL, C, Go, R, JavaScript |
+| a published agent mean in `docs/ablations.txt` | SQL, Go, R, JavaScript |
+| one of 90 per episode metrics | SQL, Go, R |
+| one of 13,200 demand draws, by 1e-6 | C |
+| one of 682 edge capacity draws | C |
+| the shaping term in the reward anatomy fixture | C, JavaScript |
+| the mean backlog column swapped with backpressure's | SQL, C, Go, R, Rust |
+| the served margin's per episode signs scrambled, mean untouched | SQL, Go, R, Rust |
+| an edge count in `docs/transfer.txt` | Go |
+| a NaN in a training curve | Go |
+| a ragged row in the per episode metrics | C, Go, R, Rust |
+| a number in this README, tables untouched | JavaScript |
+| the transferred tensor count | JavaScript |
+
+## 5. Method
 The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant.
 
 Policy-invariance has a price, and it shows up in the figure below. Because the
@@ -139,7 +228,7 @@ to route from nothing.
 ![what each reward term contributes over an episode](docs/reward-anatomy.png)
 
 Full detail in [notes/METHODS.md](notes/METHODS.md#4-method).
-## 5. Repository layout
+## 6. Repository layout
 
 ```
 dgno/simulator.py   queueing dynamics, demand, incidents, spillback
@@ -154,9 +243,18 @@ dgno/visualize.py   episode animation
 dgno/figures.py     regenerate the figures in this README
 tests/test_dgno.py  invariants, batching, shaping telescoping
 tests/test_checkpoint.py  re-derives the reported numbers from the checkpoint
+verify/export.py    writes the per episode fixture and the recorded draws
+verify/data/        that fixture, regenerated and diffed in CI
+verify/simulate.c   the simulator and both baselines again, in C
+verify/gocheck/     structural and cross table validation, in Go
+verify/summary.sql  the published means again, in SQLite
+verify/verify.R     the means again plus paired intervals, in base R
+verify/permute/     the exact randomisation test and a paired bootstrap, in Rust
+verify/readme_audit.js  every number in this README against its source file
+verify/verify.sh    runs all six and exits non-zero on any disagreement
 ```
 
-## 6. Limitations
+## 7. Limitations
 
 Spillback rationing is single-pass, so a throttled node can leave its upstream
 slightly over-served within the same tick. It corrects on the next one.

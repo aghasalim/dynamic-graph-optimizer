@@ -31,3 +31,76 @@ jobs:
 
       - name: Verify the committed checkpoint reproduces the reported result
         run: python tests/test_checkpoint.py
+
+      - name: The verify/ fixture still comes out of the Python unchanged
+        run: |
+          python verify/export.py
+          git diff --exit-code -- verify/data
+
+  verify:
+    name: recompute the published numbers in every other language
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install R
+        run: |
+          command -v Rscript || {
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends r-base-core
+          }
+
+      - name: Toolchain versions
+        run: |
+          sqlite3 --version
+          cc --version | head -1
+          go version
+          cargo --version
+          Rscript --version
+          node --version
+
+      - name: Recompute everything and require agreement
+        run: ./verify/verify.sh
+
+      # A check that cannot fail is not evidence. Corrupt a published table and
+      # a raw draw in turn, require rejection each time, restore, require a pass.
+      - name: The harness rejects a nudged published table
+        run: |
+          sed -i 's/^ppo 4M                  272.53     0.929/ppo 4M                  272.53     0.930/' \
+            docs/ablations.txt
+          if git diff --quiet -- docs/ablations.txt; then
+            echo "the sed matched nothing, so this test would prove nothing"
+            exit 1
+          fi
+          if ./verify/verify.sh; then
+            echo "the harness accepted a table that was edited by hand"
+            exit 1
+          fi
+          git checkout -- docs/ablations.txt
+
+      - name: The harness rejects one altered demand draw in 13200
+        run: |
+          python3 - <<'EOF'
+          import pathlib
+          p = pathlib.Path("verify/data/draws-step.csv")
+          lines = p.read_text().split("\n")
+          for i, line in enumerate(lines):
+              if line.startswith("3,100,"):
+                  f = line.split(",")
+                  f[4] = repr(float(f[4]) + 1e-6)
+                  lines[i] = ",".join(f)
+                  break
+          else:
+              raise SystemExit("no episode 3 step 100 row to corrupt")
+          p.write_text("\n".join(lines))
+          EOF
+          if ./verify/verify.sh; then
+            echo "the C simulator accepted a draw file it should have diverged on"
+            exit 1
+          fi
+          git checkout -- verify/data/draws-step.csv
+
+      - name: And passes again once both are restored
+        run: |
+          git diff --exit-code
+          ./verify/verify.sh

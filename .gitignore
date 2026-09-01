@@ -7,3 +7,6 @@ renders/*.gif
 !docs/*.png
 .ruff_cache/
 *.log
+
+# verify/ build products
+verify/*/target/
