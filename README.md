@@ -151,8 +151,12 @@ metrics do not: every simulator step has a min and a clip in it, so a difference
 in the last bits of a sum can flip a branch and grow over 300 steps, and
 regenerating on the runner rather than on the laptop that wrote the fixture
 moves a single episode by up to 7.4e-04 relative. So those are held to a
-tolerance an order of magnitude above the measured drift, and their means are
-then required to round to the same `docs/ablations.txt`.
+tolerance an order of magnitude above the measured drift. It is not tighter than the printed
+table on purpose: the one time I did require the regenerated means to round
+identically, the runner put the `ppo 4M entropy` return at 260.76 against the
+260.77 published here, so that column's second decimal is not portable.
+`docs/ablations.txt` is instead pinned to the committed fixture exactly, by the
+four implementations below, which is where that comparison belongs.
 
 | implementation | what it recomputes | from | measured agreement |
 | --- | --- | --- | --- |
