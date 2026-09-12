@@ -62,7 +62,7 @@ jobs:
       - name: Recompute everything and require agreement
         run: ./verify/verify.sh
 
-      # A check that cannot fail is not evidence. Corrupt a published table and
+      # A check that cannot fail is not a check. Corrupt a published table and
       # a raw draw in turn, require rejection each time, restore, require a pass.
       - name: The harness rejects a nudged published table
         run: |
