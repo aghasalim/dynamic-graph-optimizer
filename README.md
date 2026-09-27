@@ -82,14 +82,14 @@ Detail in [notes/METHODS.md](notes/METHODS.md#22-transfer-to-other-grid-sizes).
 
 ## What the reward is actually made of
 
-The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant. `tests/test_dgno.py` checks the telescoping property rather than taking it on trust.
+The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant. `tests/test_dgno.py` checks the telescoping property instead of taking it on trust.
 
 Policy-invariance has a price, and it shows up in the figure below. Because the
 term telescopes, over a 300 step episode throughput accumulates 273.6 of return
 while the shaping term sums to 0.69, a factor of about 400. It speeds up credit
 assignment and applies almost no pressure of its own to flatten backlog. Routing
 is a softmax over each node's out-edges, and at zero action that is plain
-shortest-path, so the agent is correcting a working default rather than learning
+shortest-path, so the agent is correcting a working default instead of learning
 to route from nothing.
 
 ![what each reward term contributes over an episode](docs/reward-anatomy.png)
@@ -116,7 +116,7 @@ python tests/test_checkpoint.py
 That reloads it, re-runs the evaluation against both baselines, and fails if it
 stops beating backpressure on throughput or peak backlog, or if it drifts back
 towards a static policy. It runs in CI, so the numbers above are re-derived on
-every push rather than being a table I typed once. The independent
+every push instead of being a table I typed once. The independent
 implementations in `verify/` re-derive them again from the recorded per episode
 data, and CI fails on any disagreement.
 
@@ -165,7 +165,7 @@ verify/verify.sh    runs all six and exits non-zero on any disagreement
 Spillback rationing is single-pass, so a throttled node can leave its upstream
 slightly over-served within the same tick. It corrects on the next one.
 
-Flow is fluid rather than discrete vehicles, and the agent sees state with no
+Flow is fluid instead of discrete vehicles, and the agent sees state with no
 delay, which is where most of the real difficulty would be.
 
 ## The four papers this leans on
