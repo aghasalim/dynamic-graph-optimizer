@@ -4,6 +4,7 @@
 
 [![ci](https://github.com/aghasalim/dynamic-graph-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/aghasalim/dynamic-graph-optimizer/actions/workflows/ci.yml)
 [![licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23003620.svg)](https://doi.org/10.5281/zenodo.23003620)
 
 ![the trained agent mid-episode](docs/network-state.png)
 
