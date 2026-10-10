@@ -10,3 +10,4 @@ renders/*.gif
 
 # verify/ build products
 verify/*/target/
+*.egg-info/
