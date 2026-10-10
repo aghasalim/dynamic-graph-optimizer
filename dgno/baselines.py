@@ -137,6 +137,22 @@ def evaluate_policy(
     }
 
 
+def paired_difference(
+    a: list[float], b: list[float], n_boot: int = 10_000, seed: int = 0
+) -> tuple[float, float, float]:
+    """Mean of a - b over paired episodes, with a 95% percentile bootstrap interval.
+
+    Every policy is evaluated on the same seeds, so episode i is the same traffic
+    for both. Differencing per episode removes the traffic-to-traffic spread, which
+    is most of the spread in `return`, before the interval is taken.
+    """
+    d = np.asarray(a, dtype=np.float64) - np.asarray(b, dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    means = d[rng.integers(0, len(d), size=(n_boot, len(d)))].mean(axis=1)
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    return float(d.mean()), float(lo), float(hi)
+
+
 def compare_policies(
     policies: dict[str, Policy],
     env: DynamicRoutingEnv,
