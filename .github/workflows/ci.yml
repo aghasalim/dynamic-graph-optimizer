@@ -32,6 +32,11 @@ jobs:
       - name: Verify the committed checkpoint reproduces the reported result
         run: python tests/test_checkpoint.py
 
+      - name: docs/paired-returns.txt still matches the per episode metrics
+        run: |
+          python -m dgno.ablations --paired
+          git diff --exit-code -- docs/paired-returns.txt
+
       - name: The verify/ fixture still comes out of the Python unchanged
         run: |
           python verify/export.py --check

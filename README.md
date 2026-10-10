@@ -36,6 +36,11 @@ I ran 10 eval episodes on shared seeds. `served` is delivered over offered deman
 `peak_q` is the episode mean of the worst node's backlog. `churn` is how much the
 action moves per step.
 
+Because the seeds are shared, I can also take the difference episode by episode.
+`docs/paired-returns.txt` has each policy's return minus backpressure's, with a 95%
+bootstrap interval over the 10 seeds. The 4M agent's interval is well above zero.
+The 400k baseline's covers zero, so on return it is a tie with backpressure, not a loss.
+
 Put another way, the 4M agent serves 0.929 of offered demand against backpressure's 0.901.
 It drops 0.047 against 0.075, and holds the worst node at 0.602 against 0.672. Its
 churn is 0.0155 against backpressure's 0.1994, so it does this while moving the

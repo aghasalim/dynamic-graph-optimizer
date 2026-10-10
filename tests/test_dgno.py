@@ -13,7 +13,12 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from dgno.baselines import BackpressurePolicy, ShortestPathPolicy, evaluate_policy
+from dgno.baselines import (
+    BackpressurePolicy,
+    ShortestPathPolicy,
+    evaluate_policy,
+    paired_difference,
+)
 from dgno.env import DynamicRoutingEnv, RewardConfig, smooth_max
 from dgno.models import GraphFeaturesExtractor
 from dgno.simulator import NetworkConfig, NetworkSimulator
@@ -188,6 +193,19 @@ def test_backpressure_beats_shortest_path_under_load() -> None:
     smart = evaluate_policy(BackpressurePolicy(env), env, episodes=4, seed=99)
     assert smart["served_fraction"] > naive["served_fraction"]
     assert smart["mean_peak_queue"] < naive["mean_peak_queue"]
+
+
+def test_paired_difference_uses_the_pairing() -> None:
+    """Two policies one unit apart on wildly different traffic.
+
+    Unpaired, the gap is lost in the spread. Paired, it is exactly one.
+    """
+    traffic = np.array([100, 300, 150, 260, 220, 120, 280, 180, 240, 200], dtype=np.float64)
+    mean, lo, hi = paired_difference(traffic + 1.0, traffic)
+    assert (mean, lo, hi) == (1.0, 1.0, 1.0)
+    noise = np.random.default_rng(0).normal(0, 0.1, traffic.size)
+    mean, lo, hi = paired_difference(traffic + 1.0 + noise, traffic)
+    assert 0.0 < lo < mean < hi < 2.0
 
 
 def main() -> int:

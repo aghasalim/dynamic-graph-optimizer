@@ -1,0 +1,13 @@
+return minus backpressure, paired by episode over the same 10 seeds,
+mean and 95% bootstrap interval
+
+policy                     diff      low     high
+-------------------------------------------------
+shortest-path            -11.35   -18.13    -5.41
+ppo 4M                    15.26    11.77    18.04
+ppo 400k (baseline)       -1.25    -6.33     2.62
+ppo 400k gain 1.0         -7.56   -13.97    -2.17
+ppo 400k no churn         -1.07    -6.12     2.76
+ppo 400k both             -8.62   -15.12    -3.14
+ppo 400k absolute         -6.00   -11.46    -1.33
+ppo 4M entropy             3.49     1.37     5.92
