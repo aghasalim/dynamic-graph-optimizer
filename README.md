@@ -12,32 +12,35 @@
 sources and blue are sinks; edge width is flow and edge colour is the routing
 offset.</sub>
 
-Routing on a spatial network under time-varying demand and random link failure is
-a control problem with a strong classical baseline. Backpressure scheduling is
-throughput-optimal for this class of queueing network, and minimising the drift of
-a quadratic Lyapunov function reproduces it in closed form. So there is a bar to
-clear, and clearing it is not automatic.
+I picked routing on a spatial network, with demand that changes over time and
+links that fail at random. It's a control problem with a strong classical baseline.
+Backpressure scheduling is throughput-optimal for this kind of queueing network, and
+you get it in closed form by minimising the drift of a quadratic Lyapunov function.
+So there's a real bar to beat, and it's not easy.
 
-Short answers: yes on four metrics of five, and yes it transfers. Getting there
-took ten times the training budget I expected, and two plausible fixes that both
-made things worse. Those are here too.
+The short answer is yes on four of five metrics, and yes, it transfers. It took ten
+times the training budget I expected. I also tried two fixes that seemed sensible,
+and both made things worse. I've included those too.
 
 ---
 
 ## The scoreboard
 
-At 4M steps the agent beats backpressure on four of the five metrics I score,
-0.929 served against 0.901, 0.047 dropped against 0.075, 0.602 mean peak backlog
-against 0.672, while moving the routing weights roughly an order of magnitude
-less. It loses the fifth: mean backlog over all nodes is 0.268 against 0.262. It
-holds the worst node down and carries a little more queue everywhere else.
+At 4M steps the agent beats backpressure on four of the five metrics I score.
+The summary is 0.929 served against 0.901, 0.047 dropped against 0.075, and
+0.602 mean peak backlog against 0.672. On the fifth it loses, since its
+mean backlog over all nodes is 0.268 against 0.262. So it keeps the worst node down
+but carries a bit more queue everywhere else.
 
-10 eval episodes on shared seeds. `served` is delivered over offered demand, `peak_q` is the episode mean of the worst node's backlog, `churn` is how much the action moves per step.
+I ran 10 eval episodes on shared seeds. `served` is delivered over offered demand.
+`peak_q` is the episode mean of the worst node's backlog. `churn` is how much the
+action moves per step.
 
-The 4M agent serves 0.929 of offered demand against backpressure's 0.901,
-drops 0.047 against 0.075, and holds the worst node at 0.602 against 0.672. Its churn is 0.0155 against backpressure's 0.1994, so it gets that while
-moving the routing weights about an order of magnitude less. Mean backlog over
-all nodes is the column it loses, 0.268 against 0.262.
+Put another way, the 4M agent serves 0.929 of offered demand against backpressure's 0.901.
+It drops 0.047 against 0.075, and holds the worst node at 0.602 against 0.672. Its
+churn is 0.0155 against backpressure's 0.1994, so it does this while moving the
+routing weights about an order of magnitude less. Mean backlog over all nodes is
+the column it loses, 0.268 against 0.262.
 
 ![policy comparison](docs/policy-comparison.png)
 ![learning curve](docs/learning-curve.png)
@@ -45,7 +48,7 @@ all nodes is the column it loses, 0.268 against 0.262.
 ![the same run replayed in step order](docs/learning-curve.gif)
 
 *The 4M run replayed in step order. The dashed line is its own first reading
-at 4k steps, and the curve spends a long stretch below it before climbing back
+at 4k steps. The curve stays below it for a long time before it climbs back
 past.*
 
 Detail in [notes/METHODS.md](notes/METHODS.md#21-against-the-baselines).
@@ -54,43 +57,45 @@ Detail in [notes/METHODS.md](notes/METHODS.md#21-against-the-baselines).
 
 ![every checkpoint on the same seeds](docs/ablations.png)
 
-The two fixes I expected to work both failed. Raising the action head gain to
+I expected two fixes to work, and neither did. Raising the action head gain to
 1.0 at 400k made it worse (0.877 served, 0.759 peak backlog against the 400k
-baseline's 0.891 and 0.746), removing the churn penalty changed nothing to three decimals,
-and an entropy bonus at 4M gave 0.902 served against the plain run's 0.929. What
-fixed it was ten times the training budget.
+baseline's 0.891 and 0.746). Removing the churn penalty changed nothing to three
+decimals. Adding an entropy bonus at 4M gave 0.902 served against the plain run's 0.929.
+In the end what fixed it was ten times the training budget.
 
 ## It holds up on grids four times the size
 
-Trained on 4x5, evaluated with no retraining. `sp` is shortest-path, `bp` is backpressure.
+I trained on 4x5 and evaluated on other sizes without retraining. `sp` is
+shortest-path and `bp` is backpressure.
 
-On 8x10, four times the nodes and 4.6 times the edges of the training grid, it
-still serves 0.898 against backpressure's 0.871 and keeps peak backlog at 0.706
-against 0.751. The margin does not decay with size, though it is not flat
-either: the widest served gap is +0.028 on the 4x5 grid it trained on, the
-narrowest is +0.008 on 3x4, and it comes back to +0.027 on 8x10.
+On 8x10 there are four times the nodes and 4.6 times the edges of the training
+grid. It still serves 0.898 against backpressure's 0.871 and keeps peak backlog at 0.706
+against 0.751. The margin doesn't shrink with size, but it isn't flat either. The
+widest served gap is +0.028 on the 4x5 grid it trained on. The
+narrowest is +0.008 on 3x4, and then it goes back to +0.027 on 8x10.
 
 ![transfer scaling](docs/transfer-scaling.png)
 
-That transfer is the payoff of keeping the policy permutation-equivariant.
-Re-hosting the policy on a new grid copies 113 of its 117 tensors, or put the
-other way, 113 of 117 tensors copy across a change of topology, and the four that
-do not are `edge_index` buffers and `log_std`. An equivariant head replacing
-SB3's dense action layer is what buys that, and the transfer table is the
-experiment that justifies the swap.
+It transfers because I kept the policy permutation-equivariant. Moving the policy
+to a new grid copies 113 of its 117 tensors. In other words, 113 of 117 tensors copy
+across a change of topology, and the four that do not are `edge_index` buffers and `log_std`.
+That comes from swapping SB3's dense action layer for an equivariant head. The
+transfer table is the experiment that shows the swap was worth it.
 
 Detail in [notes/METHODS.md](notes/METHODS.md#22-transfer-to-other-grid-sizes).
 
 ## What the reward is actually made of
 
-The congestion term is written as potential-based shaping, `gamma*Phi(s') - Phi(s)`, which is what makes it policy-invariant. `tests/test_dgno.py` checks the telescoping property directly.
+I wrote the congestion term as potential-based shaping, `gamma*Phi(s') - Phi(s)`,
+so it's policy-invariant. `tests/test_dgno.py` checks the telescoping property
+directly.
 
-Policy-invariance has a price, and it shows up in the figure below. Because the
-term telescopes, over a 300 step episode throughput accumulates 273.6 of return
-while the shaping term sums to 0.69, a factor of about 400. It speeds up credit
-assignment and applies almost no pressure of its own to flatten backlog. Routing
-is a softmax over each node's out-edges, and at zero action that is plain
-shortest-path, so the agent starts from a working default and corrects it.
+That has a cost, which you can see in the figure below. Since the term telescopes,
+over a 300 step episode throughput accumulates 273.6 of return while the shaping
+term sums to 0.69, a factor of about 400. So it helps with credit assignment but
+hardly pushes the agent to flatten backlog on its own. Routing is a softmax over
+each node's out-edges. At zero action that's plain shortest-path, so the agent
+starts from something that works and corrects it.
 
 ![what each reward term contributes over an episode](docs/reward-anatomy.png)
 
@@ -113,25 +118,25 @@ so you don't have to spend the four hours retraining it:
 python tests/test_checkpoint.py
 ```
 
-That reloads it, re-runs the evaluation against both baselines, and fails if it
-stops beating backpressure on throughput or peak backlog, or if it drifts back
-towards a static policy. It runs in CI, so the numbers above are re-derived on every push. The independent
-implementations in `verify/` re-derive them again from the recorded per episode
-data, and CI fails on any disagreement.
+That reloads it and re-runs the evaluation against both baselines. It fails if
+the agent stops beating backpressure on throughput or peak backlog, or drifts back
+towards a static policy. It runs in CI, so the numbers above get re-derived on every
+push. The code in `verify/` also re-derives them separately from the recorded per
+episode data, and CI fails if anything disagrees.
 
-The ablation agents are committed too, under `checkpoints/ablations/`. Re-derive
-every ablation number above in about 15 seconds:
+I committed the ablation agents too, under `checkpoints/ablations/`. You can
+re-derive every ablation number above in about 15 seconds.
 
 ```bash
 python -m dgno.ablations
 ```
 
-It scores every agent under the same reward and seeds, so `return` is comparable
-across rows there -- unlike the per-run files in `docs/`, each of which uses the
-reward its own agent was trained on.
+It scores every agent with the same reward and seeds, so `return` can be compared
+across rows there. That's not true of the per-run files in `docs/`, since each one
+uses the reward its own agent was trained on.
 
-Retraining from scratch, if you want to: `python -m dgno.train --timesteps 4000000`,
-about four hours on 8 CPU envs.
+If you want to retrain from scratch, run `python -m dgno.train --timesteps 4000000`.
+It takes about four hours on 8 CPU envs.
 
 ## Where the files are
 
@@ -162,10 +167,10 @@ verify/verify.sh    runs all six and exits non-zero on any disagreement
 ## Where the simulator is unrealistic
 
 Spillback rationing is single-pass, so a throttled node can leave its upstream
-slightly over-served within the same tick. It corrects on the next one.
+slightly over-served within the same tick. It fixes itself on the next tick.
 
-Flow is a fluid with no discrete vehicles, and the agent sees state with no
-delay, which is where most of the real difficulty would be.
+Flow is a fluid with no discrete vehicles, and the agent sees the state with no
+delay. In a real network that delay is probably where most of the difficulty is.
 
 ## The four papers this leans on
 
