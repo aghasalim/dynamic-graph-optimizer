@@ -1,7 +1,0 @@
-torch>=2.4
-torch-geometric>=2.5
-gymnasium>=0.29
-stable-baselines3>=2.3
-networkx>=3.0
-matplotlib>=3.7
-numpy>=1.24
