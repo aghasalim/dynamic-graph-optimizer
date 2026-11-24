@@ -1,5 +1,3 @@
-<p align="center"><img src="assets/banner.jpg" alt="Line drawing of a road network as a graph, with packets on the edges and one path rerouted around a blocked edge" width="100%"></p>
-
 # Dynamic Graph Network Optimizer
 
 **Can a GNN policy learn routing control that beats backpressure, and does it transfer to graphs it never saw?**
