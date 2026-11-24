@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/banner.jpg" alt="Line drawing of a road network as a graph, with packets on the edges and one path rerouted around a blocked edge" width="100%"></p>
+
 # Dynamic Graph Network Optimizer
 
 **Can a GNN policy learn routing control that beats backpressure, and does it transfer to graphs it never saw?**
@@ -23,6 +25,20 @@ times the training budget I expected. I also tried two fixes that seemed sensibl
 and both made things worse. I've included those too.
 
 ---
+
+<details>
+<summary>Contents</summary>
+
+- [The scoreboard](#the-scoreboard)
+- [The two fixes that made it worse](#the-two-fixes-that-made-it-worse)
+- [It holds up on grids four times the size](#it-holds-up-on-grids-four-times-the-size)
+- [What the reward is actually made of](#what-the-reward-is-actually-made-of)
+- [Running it, without the four hours](#running-it-without-the-four-hours)
+- [Where the files are](#where-the-files-are)
+- [Where the simulator is unrealistic](#where-the-simulator-is-unrealistic)
+- [The four papers this leans on](#the-four-papers-this-leans-on)
+
+</details>
 
 ## The scoreboard
 
